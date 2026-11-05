@@ -32,13 +32,17 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
     from .blueprints.auth import auth_bp
     from .blueprints.dashboards import dashboards_bp
     from .blueprints.management import management_bp
+    from .blueprints.privacy import privacy_bp
     from .blueprints.projects import projects_bp
+    from .blueprints.reports import reports_bp
     from .blueprints.work import work_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(projects_bp)
     app.register_blueprint(management_bp)
     app.register_blueprint(dashboards_bp)
+    app.register_blueprint(privacy_bp)
+    app.register_blueprint(reports_bp)
     app.register_blueprint(work_bp)
 
     @app.errorhandler(400)

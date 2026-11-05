@@ -4,5 +4,7 @@
 <h1>{{ project.name }}</h1>
 <p>{{ project.description or "Sin descripción." }}</p>
 <p>Estado: {{ project.status }}</p>
+<p><a href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Tablero de seguimiento</a></p>
+<p><a href="{{ url_for('dashboards.changes_page', project_id=project.id) }}">Gestión del cambio</a></p>
+<p><a href="{{ url_for('reports.export_pdf', project_id=project.id) }}">Descargar informe PDF</a></p>
 {% endblock %}
-

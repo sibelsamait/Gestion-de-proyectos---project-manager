@@ -10,6 +10,11 @@
   <header class="site-header">
     <a href="{{ url_for('projects.index') }}">Gestión de proyectos</a>
     {% if current_user.is_authenticated %}
+      <nav aria-label="Cuenta">
+        <a href="{{ url_for('privacy.export_data') }}">Descargar mis datos</a>
+        <a href="{{ url_for('privacy.privacy_page') }}">Privacidad</a>
+        <a href="{{ url_for('privacy.terms_page') }}">Términos</a>
+      </nav>
       <form method="post" action="{{ url_for('auth.logout') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit">Cerrar sesión</button>
