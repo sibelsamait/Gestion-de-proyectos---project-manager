@@ -1,0 +1,2 @@
+Flask-Migrate stores Alembic migration revisions in this directory.
+

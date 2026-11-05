@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Mis proyectos{% endblock %}
+{% block content %}
+<h1>Mis proyectos</h1>
+{% if projects %}
+<ul>{% for project in projects %}<li><a href="{{ url_for('projects.detail', project_id=project.id) }}">{{ project.code }} — {{ project.name }}</a></li>{% endfor %}</ul>
+{% else %}<p>No tienes proyectos asignados.</p>{% endif %}
+{% endblock %}
+
