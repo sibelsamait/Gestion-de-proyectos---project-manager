@@ -18,6 +18,7 @@ from ...models import (
     TaskDependency,
 )
 from ...services.audit import record_audit
+from ...services.scheduler import validate_dependency
 from ..projects import project_access_required
 
 work_bp = Blueprint("work", __name__, url_prefix="/projects")
@@ -271,6 +272,7 @@ def create_dependency(project: Project, task_id: str) -> tuple[dict[str, str], i
             dependency_type=dependency_type,
             lag_days=int(request.form.get("lag_days", "0")),
         )
+        validate_dependency(db.session, dependency)
         db.session.add(dependency)
         db.session.flush()
         record_audit("task_dependency.created", "task_dependency", successor.id)
