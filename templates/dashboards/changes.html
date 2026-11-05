@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Gestión del cambio — {{ project.name }}{% endblock %}
+{% block content %}
+<h1>Tablero de gestión del cambio</h1>
+<p>Proyecto: {{ project.name }}</p>
+<section aria-labelledby="change-summary-title">
+  <h2 id="change-summary-title">Resumen</h2>
+  <div id="change-summary" aria-live="polite" data-project-id="{{ project.id }}">Cargando datos…</div>
+</section>
+<section aria-labelledby="change-status-title">
+  <h2 id="change-status-title">Distribución por estado</h2>
+  <table id="change-status-table">
+    <caption>Solicitudes por estado</caption>
+    <thead><tr><th>Estado</th><th>Cantidad</th></tr></thead><tbody></tbody>
+  </table>
+</section>
+<script type="module" src="{{ url_for('static', filename='js/dashboard2.js') }}"></script>
+{% endblock %}

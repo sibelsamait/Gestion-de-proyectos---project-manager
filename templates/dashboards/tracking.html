@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Seguimiento — {{ project.name }}{% endblock %}
+{% block content %}
+<h1>Tablero de seguimiento</h1>
+<p>Proyecto: {{ project.name }}</p>
+<section aria-labelledby="tracking-kpis">
+  <h2 id="tracking-kpis">Indicadores</h2>
+  <div id="tracking-summary" aria-live="polite">Cargando datos…</div>
+</section>
+<section aria-labelledby="gantt-title">
+  <h2 id="gantt-title">Gantt</h2>
+  <div id="gantt" role="img" aria-label="Cronograma del proyecto" data-project-id="{{ project.id }}"></div>
+  <table id="gantt-table">
+    <caption>Alternativa textual del Gantt</caption>
+    <thead><tr><th>Tarea</th><th>Inicio</th><th>Término</th><th>Avance</th><th>Estado</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+<script type="module" src="{{ url_for('static', filename='js/gantt.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/dashboard1.js') }}"></script>
+{% endblock %}
