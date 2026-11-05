@@ -30,11 +30,13 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
 
     from . import models  # noqa: F401
     from .blueprints.auth import auth_bp
+    from .blueprints.management import management_bp
     from .blueprints.projects import projects_bp
     from .blueprints.work import work_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(projects_bp)
+    app.register_blueprint(management_bp)
     app.register_blueprint(work_bp)
 
     @app.errorhandler(400)
