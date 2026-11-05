@@ -1,9 +1,11 @@
 """Modelos de proyectos y membresías."""
 
+from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import Enum, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Date, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
@@ -24,6 +26,11 @@ class Project(db.Model):
     objectives: Mapped[str | None] = mapped_column(Text)
     director_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     sponsor: Mapped[str | None] = mapped_column(String(160))
+    authorized_budget: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    planned_start: Mapped[date | None] = mapped_column(Date)
+    planned_end: Mapped[date | None] = mapped_column(Date)
+    actual_start: Mapped[date | None] = mapped_column(Date)
+    actual_end: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(
         Enum("planificado", "en_ejecucion", "suspendido", "terminado", name="project_status"),
         nullable=False,

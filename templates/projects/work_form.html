@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Nuevo elemento{% endblock %}
+{% block content %}
+<h1>Nuevo {{ {"task": "tarea", "resource": "recurso", "milestone": "hito"}[kind] }}</h1>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Nombre <input name="name" required maxlength="160" value="{{ item.name or '' }}"></label>
+  {% if kind == "task" %}
+  <label>Descripción <textarea name="description">{{ item.description or '' }}</textarea></label>
+  <label>Etapa <input name="etapa" maxlength="120" value="{{ item.etapa or '' }}"></label>
+  <label>Inicio <input name="planned_start" type="date" value="{{ item.planned_start or '' }}"></label>
+  <label>Término <input name="planned_end" type="date" value="{{ item.planned_end or '' }}"></label>
+  <label>Duración hábil <input name="planned_duration_days" type="number" min="0" value="{{ item.planned_duration_days }}"></label>
+  <label>Avance <input name="progress_percent" type="number" min="0" max="100" step="0.01" value="{{ item.progress_percent }}"></label>
+  {% elif kind == "resource" %}
+  <label>Tipo <select name="type">{% for value in ("Profesional", "Licencia", "Material", "Equipamiento", "Otros") %}<option>{{ value }}</option>{% endfor %}</select></label>
+  <label>Especialidad <input name="specialty" value="{{ item.specialty or '' }}"></label>
+  <label>Valor hora <input name="hourly_rate" type="number" min="0" step="0.01" value="{{ item.hourly_rate }}"></label>
+  <label>Horas semanales <input name="hours_per_week" type="number" min="0" step="0.01" value="{{ item.hours_per_week }}"></label>
+  <label>Semanas <input name="weeks" type="number" min="0" step="0.01" value="{{ item.weeks }}"></label>
+  <label>Cantidad <input name="quantity" type="number" min="0" step="0.01" value="{{ item.quantity }}"></label>
+  <label>Valor unitario <input name="unit_cost" type="number" min="0" step="0.01" value="{{ item.unit_cost }}"></label>
+  {% else %}
+  <label>Descripción <textarea name="description">{{ item.description or '' }}</textarea></label>
+  <label>Fecha comprometida <input name="committed_date" type="date" value="{{ item.committed_date or '' }}"></label>
+  <label>Criterios de aceptación <textarea name="acceptance_criteria">{{ item.acceptance_criteria or '' }}</textarea></label>
+  <label>Evidencia (texto o URL) <textarea name="evidence">{{ item.evidence or '' }}</textarea></label>
+  {% endif %}
+  <button type="submit">Guardar</button>
+</form>
+{% endblock %}
