@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check app tests migrations scripts
+      - name: Tests
+        run: pytest -q
+      - name: Bandit
+        run: bandit -r app api scripts -ll
+      - name: Auditoría de dependencias
+        run: pip-audit -r requirements.txt

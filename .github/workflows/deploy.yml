@@ -1,0 +1,37 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Migrar Neon
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FLASK_APP: app
+          FLASK_ENV: production
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: flask db upgrade
+      - name: Instalar Vercel CLI
+        run: npm install --global vercel
+      - name: Desplegar Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel deploy --prod --token "$VERCEL_TOKEN" --yes

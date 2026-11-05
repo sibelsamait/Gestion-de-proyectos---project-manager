@@ -28,6 +28,8 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
         force_https=app.config["TALISMAN_FORCE_HTTPS"],
     )
 
+    from scripts.seed_demo import register_cli
+
     from . import models  # noqa: F401
     from .blueprints.auth import auth_bp
     from .blueprints.dashboards import dashboards_bp
@@ -44,6 +46,7 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
     app.register_blueprint(privacy_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(work_bp)
+    register_cli(app)
 
     @app.errorhandler(400)
     def bad_request(error: object) -> tuple[str, int]:
