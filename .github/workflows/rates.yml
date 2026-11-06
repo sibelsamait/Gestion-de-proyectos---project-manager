@@ -1,0 +1,25 @@
+name: Actualizar tasas
+
+on:
+  schedule:
+    - cron: "15 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Actualizar histórico de tasas
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FLASK_APP: app
+          FLASK_ENV: production
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          RATES_API_URL: https://mindicador.cl/api
+        run: flask backfill-rates --days 90

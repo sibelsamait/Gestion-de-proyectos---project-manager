@@ -32,6 +32,9 @@ en Vercel porque el disco serverless es efímero.
 - `FLASK_ENV=production`: activa HTTPS, cookies Secure y `NullPool`.
 - `RATELIMIT_STORAGE_URI`: localmente `memory://`; en producción real usar
   Redis/Upstash para un límite compartido entre instancias.
+- `RATES_API_URL`: URL HTTPS fija del proveedor, por defecto
+  `https://mindicador.cl/api`.
+- `CRON_SECRET`: secreto usado por Vercel Cron para `/internal/refresh-rates`.
 
 Nunca se debe commitear `.env`.
 
@@ -61,6 +64,23 @@ desde Flask mediante `static_folder`; no se necesita Node ni un build step.
    `VERCEL_TOKEN`, `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID`.
 5. Hacer merge a `main`. `deploy.yml` ejecuta `flask db upgrade` contra Neon y
    después `vercel deploy --prod`.
+
+Para cargar tasas históricas en producción, configura `DATABASE_URL` y
+`SECRET_KEY` como secrets de GitHub y ejecuta manualmente el workflow
+**Actualizar tasas**, o usa:
+
+```bash
+FLASK_APP=app flask backfill-rates --days 90
+```
+
+Vercel Cron ejecuta el refresco diario usando `CRON_SECRET`; el workflow
+programado ofrece un respaldo independiente.
+
+La moneda de presentación se selecciona en la barra superior. CLP es la moneda
+base persistida; UF y USD se convierten únicamente al mostrar datos. Si la
+última tasa disponible supera tres días, la interfaz muestra una advertencia.
+El campo opcional de moneda de ingreso para recursos y cambios no forma parte
+de esta fase.
 
 Las migraciones nunca se ejecutan al importar la función serverless y nunca se
 llama `create_all()` en producción.

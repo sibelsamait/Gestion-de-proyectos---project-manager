@@ -1,10 +1,12 @@
 /** Renderiza un Gantt SVG accesible a partir del endpoint JSON. */
+import { selectedCurrency } from './app.js';
 const escapeText = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
 }[char]));
 
 export async function renderGantt(projectId) {
-  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/gantt`, {
+  const currency = selectedCurrency();
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/gantt?currency=${currency}`, {
     headers: { Accept: 'application/json' }
   });
   if (!response.ok) throw new Error('No fue posible cargar el Gantt.');

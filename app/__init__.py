@@ -1,6 +1,6 @@
 """Fábrica de la aplicación Flask."""
 
-from flask import Flask, render_template
+from flask import Flask, render_template, session
 
 from .config import Config
 from .extensions import csrf, db, limiter, login_manager, migrate, talisman
@@ -32,14 +32,17 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
 
     from . import models  # noqa: F401
     from .blueprints.auth import auth_bp
+    from .blueprints.currency import currency_bp
     from .blueprints.dashboards import dashboards_bp
     from .blueprints.management import management_bp
     from .blueprints.privacy import privacy_bp
     from .blueprints.projects import projects_bp
     from .blueprints.reports import reports_bp
     from .blueprints.work import work_bp
+    from .services.currency import register_cli as register_currency_cli
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(currency_bp)
     app.register_blueprint(projects_bp)
     app.register_blueprint(management_bp)
     app.register_blueprint(dashboards_bp)
@@ -47,6 +50,30 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
     app.register_blueprint(reports_bp)
     app.register_blueprint(work_bp)
     register_cli(app)
+    register_currency_cli(app)
+
+    @app.context_processor
+    def currency_context_processor() -> dict:
+        """Expone preferencia y estado de tasas a las plantillas."""
+        from .services.currency import RateUnavailableError, currency_context
+
+        selected = session.get("currency", "CLP")
+        if selected not in {"CLP", "UF", "USD"}:
+            selected = "CLP"
+        rate_status = {}
+        for indicator in ("UF", "USD"):
+            try:
+                rate_status[indicator] = currency_context(indicator)
+            except RateUnavailableError:
+                continue
+        return {"selected_currency": selected, "rate_status": rate_status}
+
+    @app.template_filter("money")
+    def money_filter(value: object, currency: str | None = None) -> str:
+        """Formatea montos ya expresados en la moneda de presentación."""
+        from .services.currency import format_money
+
+        return format_money(value or 0, currency or session.get("currency", "CLP"))
 
     @app.errorhandler(400)
     def bad_request(error: object) -> tuple[str, int]:

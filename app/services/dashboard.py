@@ -17,6 +17,7 @@ from ..models import (
     TaskResourceAssignment,
 )
 from .costs import professional_overallocations, project_costs
+from .currency import convert_with_context, currency_context
 
 
 def _iso(value: date | None) -> str | None:
@@ -24,7 +25,7 @@ def _iso(value: date | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def gantt_data(session: Session, project_id: str) -> dict:
+def gantt_data(session: Session, project_id: str, currency: str = "CLP") -> dict:
     """Construye la representación JSON completa del Gantt."""
     tasks = session.scalars(
         select(Task).where(Task.project_id == project_id).order_by(Task.planned_start, Task.name)
@@ -39,6 +40,7 @@ def gantt_data(session: Session, project_id: str) -> dict:
     ).all()
     today = date.today()
     return {
+        **currency_context(currency, session=session),
         "tasks": [
             {
                 "id": task.id,
@@ -75,13 +77,14 @@ def gantt_data(session: Session, project_id: str) -> dict:
     }
 
 
-def tracking_dashboard(session: Session, project: Project) -> dict:
+def tracking_dashboard(session: Session, project: Project, currency: str = "CLP") -> dict:
     """Calcula métricas del tablero de seguimiento."""
     tasks = session.scalars(select(Task).where(Task.project_id == project.id)).all()
     milestones = session.scalars(select(Milestone).where(Milestone.project_id == project.id)).all()
     evaluated = [task for task in tasks if task.planned_end]
     overdue = [task for task in evaluated if task.planned_end < date.today() and task.progress_percent < 100]
     costs = project_costs(session, project.id)
+    money = currency_context(currency, session=session)
     professional_ids = {
         resource.id
         for resource in session.scalars(select(Resource).where(Resource.project_id == project.id))
@@ -110,7 +113,9 @@ def tracking_dashboard(session: Session, project: Project) -> dict:
             "on_time": sum(1 for milestone in milestones if milestone.status == "cumplido"),
             "overdue": sum(1 for milestone in milestones if milestone.status == "vencido"),
         },
-        "costs_by_category": {key: str(value) for key, value in costs.items()},
+        "costs_by_category": {
+            key: str(convert_with_context(value, money)) for key, value in costs.items()
+        },
         "professional_utilization": {
             "assigned_hours": str(assigned_hours),
             "available_hours": str(available_hours),
@@ -118,10 +123,11 @@ def tracking_dashboard(session: Session, project: Project) -> dict:
             "overallocated": bool(professional_overallocations(session, project.id)),
         },
         "overdue_tasks": [{"id": task.id, "name": task.name} for task in overdue],
+        **money,
     }
 
 
-def change_dashboard(session: Session, project_id: str) -> dict:
+def change_dashboard(session: Session, project_id: str, currency: str = "CLP") -> dict:
     """Agrega distribución, riesgos, costos y atrasos de cambios."""
     changes = session.scalars(
         select(ChangeRequest).where(ChangeRequest.project_id == project_id)
@@ -137,12 +143,17 @@ def change_dashboard(session: Session, project_id: str) -> dict:
         for change in changes
         if change.committed_date and change.committed_date < today and change.actual_date is None
     ]
+    money = currency_context(currency, session=session)
     return {
         "total": len(changes),
         "by_status": by_status,
         "by_risk": by_risk,
-        "estimated_cost": str(sum((change.estimated_cost for change in changes), Decimal(0))),
-        "actual_cost": str(sum((change.actual_cost for change in changes), Decimal(0))),
+        "estimated_cost": str(
+            convert_with_context(sum((change.estimated_cost for change in changes), Decimal(0)), money)
+        ),
+        "actual_cost": str(
+            convert_with_context(sum((change.actual_cost for change in changes), Decimal(0)), money)
+        ),
         "overdue": overdue,
         "critical_risks": [change.change_code for change in changes if change.risk == "critico"],
         "stage_completion": {
@@ -161,4 +172,5 @@ def change_dashboard(session: Session, project_id: str) -> dict:
             {"code": kpi.code, "name": kpi.name, "result": str(kpi.result) if kpi.result is not None else None, "status": kpi.status}
             for kpi in session.scalars(select(KpiDefinition).where(KpiDefinition.project_id == project_id, KpiDefinition.scope == "change"))
         ],
+        **money,
     }

@@ -17,6 +17,11 @@ Dependencias directas del proyecto:
 | simpleeval | MIT |
 | psycopg2-binary | LGPL with linking exception |
 | pytest / ruff / bandit / pip-audit | MIT / MIT / Apache-2.0 / Apache-2.0 |
+| mindicador.cl API | Servicio público; se conserva atribución visible |
 
 Las licencias deben verificarse nuevamente al actualizar versiones. No se usa
 WeasyPrint, pdfkit, wkhtmltopdf, GPL ni AGPL.
+
+La aplicación muestra la atribución `Fuente: mindicador.cl / Banco Central de
+Chile` cuando presenta tasas. La API externa no recibe datos personales ni
+información de proyectos.

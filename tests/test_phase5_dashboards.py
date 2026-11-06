@@ -1,6 +1,6 @@
 """Pruebas de endpoints Gantt y tableros."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from test_auth_and_rbac import login, register
@@ -8,6 +8,7 @@ from test_auth_and_rbac import login, register
 from app.extensions import db
 from app.models import (
     ChangeRequest,
+    ExchangeRate,
     Milestone,
     Project,
     ProjectMembership,
@@ -89,3 +90,31 @@ def test_dashboard_pages_render_accessible_tables(client, app):
     assert b"Alternativa textual del Gantt" in tracking.data
     assert changes.status_code == 200
     assert b"Solicitudes por estado" in changes.data
+
+
+def test_dashboard_rejects_unknown_currency(client, app):
+    project_id = project_client(client, app)
+    response = client.get(f"/api/projects/{project_id}/tracking?currency=EUR")
+    assert response.status_code == 400
+
+
+def test_tracking_converts_costs_and_preserves_metadata(client, app):
+    project_id = project_client(client, app)
+    with app.app_context():
+        db.session.add(
+            ExchangeRate(
+                indicator="USD",
+                rate_date=date.today(),
+                value=Decimal(1000),
+                source="test",
+                fetched_at=datetime.now(UTC),
+            )
+        )
+        db.session.commit()
+    response = client.get(f"/api/projects/{project_id}/tracking?currency=USD")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["currency"] == "USD"
+    assert payload["rate_date"] == date.today().isoformat()
+    assert payload["is_stale"] is False
+    assert payload["professional_utilization"]["percent"] == 0

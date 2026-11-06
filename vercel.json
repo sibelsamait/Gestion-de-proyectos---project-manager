@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/internal/refresh-rates",
+      "schedule": "0 5 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ]

@@ -5,11 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Gestión de proyectos{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </head>
 <body>
   <header class="site-header">
     <a href="{{ url_for('projects.index') }}">Gestión de proyectos</a>
     {% if current_user.is_authenticated %}
+      <form method="post" action="{{ url_for('currency.set_currency') }}">
+        <label for="currency-selector">Moneda</label>
+        <select id="currency-selector" name="currency" onchange="this.form.submit()">
+          {% for currency in ("CLP", "UF", "USD") %}
+            <option value="{{ currency }}" {% if selected_currency == currency %}selected{% endif %}>{{ currency }}</option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      </form>
+      <div aria-live="polite">
+        {% if rate_status %}
+          Fuente: mindicador.cl / Banco Central de Chile.
+          {% for indicator, rate in rate_status.items() %}
+            {{ indicator }} ${{ rate.rate_used }} ({{ rate.rate_date_display }})
+            {% if rate.is_stale %}<span role="alert">Tipo de cambio desactualizado ({{ rate.rate_date_display }})</span>{% endif %}
+          {% endfor %}
+        {% else %}
+          Tasas de cambio no disponibles; se conserva la moneda base CLP.
+        {% endif %}
+      </div>
       <nav aria-label="Cuenta">
         <a href="{{ url_for('privacy.export_data') }}">Descargar mis datos</a>
         <a href="{{ url_for('privacy.privacy_page') }}">Privacidad</a>

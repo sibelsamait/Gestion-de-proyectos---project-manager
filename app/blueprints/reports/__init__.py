@@ -1,8 +1,9 @@
 """Exportación de informes PDF."""
 
-from flask import Blueprint, Response
+from flask import Blueprint, Response, request
 
 from ...extensions import db
+from ...services.currency import validate_currency
 from ...services.pdf_report import build_project_pdf
 from ..projects import project_access_required
 
@@ -13,7 +14,8 @@ reports_bp = Blueprint("reports", __name__)
 @project_access_required
 def export_pdf(project):
     """Genera un PDF solo para miembros autorizados."""
-    document = build_project_pdf(db.session, project)
+    currency = validate_currency(request.args.get("currency"))
+    document = build_project_pdf(db.session, project, currency)
     return Response(
         document.getvalue(),
         mimetype="application/pdf",
