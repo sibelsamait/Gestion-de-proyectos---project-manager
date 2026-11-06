@@ -1,6 +1,7 @@
 """Modelos persistentes de la aplicación."""
 
 from .audit import AuditLog
+from .exchange_rate import ExchangeRate
 from .management import (
     ChangeApplication,
     ChangeBaseline,
@@ -24,6 +25,7 @@ __all__ = [
     "ChangeApplication",
     "ChangeBaseline",
     "ChangeRequest",
+    "ExchangeRate",
     "KpiDefinition",
     "KpiMeasurement",
     "Milestone",

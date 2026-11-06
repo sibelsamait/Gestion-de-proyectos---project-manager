@@ -1,8 +1,9 @@
 """Gantt y tableros JSON protegidos por proyecto."""
 
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, jsonify, render_template, request
 
 from ...extensions import db
+from ...services.currency import validate_currency
 from ...services.dashboard import change_dashboard, gantt_data, tracking_dashboard
 from ..projects import project_access_required
 
@@ -13,21 +14,33 @@ dashboards_bp = Blueprint("dashboards", __name__)
 @project_access_required
 def gantt(project):
     """Devuelve tareas, hitos y precedencias del Gantt."""
-    return jsonify(gantt_data(db.session, project.id))
+    try:
+        currency = validate_currency(request.args.get("currency"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(gantt_data(db.session, project.id, currency))
 
 
 @dashboards_bp.get("/api/projects/<string:project_id>/tracking")
 @project_access_required
 def tracking(project):
     """Devuelve datos del tablero de seguimiento."""
-    return jsonify(tracking_dashboard(db.session, project))
+    try:
+        currency = validate_currency(request.args.get("currency"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(tracking_dashboard(db.session, project, currency))
 
 
 @dashboards_bp.get("/api/projects/<string:project_id>/changes-dashboard")
 @project_access_required
 def changes_dashboard(project):
     """Devuelve datos del tablero de gestión del cambio."""
-    return jsonify(change_dashboard(db.session, project.id))
+    try:
+        currency = validate_currency(request.args.get("currency"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(change_dashboard(db.session, project.id, currency))
 
 
 @dashboards_bp.get("/projects/<string:project_id>/tracking")

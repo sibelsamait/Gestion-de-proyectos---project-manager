@@ -41,6 +41,8 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     WTF_CSRF_TIME_LIMIT = 3600
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    RATES_API_URL = os.environ.get("RATES_API_URL", "https://mindicador.cl/api")
+    CRON_SECRET = os.environ.get("CRON_SECRET", "")
     TALISMAN_FORCE_HTTPS = os.environ.get("FLASK_ENV") == "production"
     CONTENT_SECURITY_POLICY: ClassVar[dict] = {
         "default-src": "'self'",

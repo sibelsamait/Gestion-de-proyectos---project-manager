@@ -1,12 +1,12 @@
 """Pruebas de privacidad, PDF y páginas legales."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from test_auth_and_rbac import login, register
 
 from app.extensions import db
-from app.models import Project, ProjectMembership, Task, User
+from app.models import ExchangeRate, Project, ProjectMembership, Task, User
 
 
 def authenticated_project(client, app):
@@ -42,6 +42,24 @@ def test_pdf_is_generated_in_memory_for_project_member(client, app):
     response = client.get(f"/projects/{project_id}/export_pdf")
     assert response.status_code == 200
     assert response.mimetype == "application/pdf"
+    assert response.data.startswith(b"%PDF")
+
+
+def test_pdf_accepts_currency_with_generation_rate(client, app):
+    project_id = authenticated_project(client, app)
+    with app.app_context():
+        db.session.add(
+            ExchangeRate(
+                indicator="USD",
+                rate_date=date.today(),
+                value=Decimal(1000),
+                source="test",
+                fetched_at=datetime.now(UTC),
+            )
+        )
+        db.session.commit()
+    response = client.get(f"/projects/{project_id}/export_pdf?currency=USD")
+    assert response.status_code == 200
     assert response.data.startswith(b"%PDF")
 
 

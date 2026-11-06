@@ -1,6 +1,9 @@
+import { formatMoney, selectedCurrency } from './app.js';
+
 /** Carga el tablero de cambios con tablas accesibles. */
 async function loadChanges(projectId) {
-  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/changes-dashboard`, {
+  const currency = selectedCurrency();
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/changes-dashboard?currency=${currency}`, {
     headers: { Accept: 'application/json' }
   });
   if (!response.ok) throw new Error('No fue posible cargar el tablero de cambios.');
@@ -9,7 +12,7 @@ async function loadChanges(projectId) {
   summary.replaceChildren();
   [
     `Total: ${data.total}`,
-    `Costo estimado: ${data.estimated_cost}; costo real: ${data.actual_cost}`,
+    `Costo estimado: ${formatMoney(data.estimated_cost, data.currency)}; costo real: ${formatMoney(data.actual_cost, data.currency)}`,
     `Cambios atrasados: ${data.overdue.length}; riesgos críticos: ${data.critical_risks.length}`
   ].forEach((text) => {
     const paragraph = document.createElement('p');

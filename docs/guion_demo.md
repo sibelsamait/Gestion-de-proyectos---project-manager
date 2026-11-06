@@ -11,3 +11,9 @@
    como admin/manager. Ver el presupuesto, la línea base, la trazabilidad y el
    recálculo del scheduler.
 6. Volver a los tableros y verificar Gantt, costos, KPI y alertas.
+7. **Conversión multidivisa:** usar el selector global para cambiar de CLP a
+   UF y luego a USD. Verificar que las tablas de costos, los tableros, los
+   tooltips/gráficos y el PDF descargado mantienen los mismos montos base,
+   convertidos con la tasa mostrada y su fecha.
+8. Mostrar la franja `Fuente: mindicador.cl / Banco Central de Chile` y, si
+   corresponde, el aviso de tasa desactualizada.

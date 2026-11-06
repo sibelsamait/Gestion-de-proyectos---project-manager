@@ -15,11 +15,34 @@ from reportlab.platypus import (
 )
 
 from ..models import ChangeRequest, KpiDefinition, Project, Task
+from .currency import (
+    RateUnavailableError,
+    convert_with_context,
+    currency_context,
+    format_money,
+)
 from .dashboard import tracking_dashboard
 
 
-def build_project_pdf(session, project: Project) -> BytesIO:
+def _rate_footer(session) -> str:
+    """Construye la leyenda de tasas sin impedir un informe CLP sin histórico."""
+    labels = []
+    for indicator in ("UF", "USD"):
+        try:
+            rate = currency_context(indicator, session=session)
+        except RateUnavailableError:
+            labels.append(f"{indicator} no disponible")
+        else:
+            labels.append(
+                f"{indicator} = {format_money(rate['rate_used'], 'CLP')} "
+                f"({rate['rate_date_display']})"
+            )
+    return " · ".join(labels)
+
+
+def build_project_pdf(session, project: Project, currency: str = "CLP") -> BytesIO:
     """Construye el informe solicitado sin crear archivos temporales."""
+    money_context = currency_context(currency, session=session)
     output = BytesIO()
     document = SimpleDocTemplate(
         output,
@@ -32,7 +55,7 @@ def build_project_pdf(session, project: Project) -> BytesIO:
         author="Gestión de proyectos",
     )
     styles = getSampleStyleSheet()
-    summary = tracking_dashboard(session, project)
+    summary = tracking_dashboard(session, project, currency)
     tasks = session.query(Task).filter_by(project_id=project.id).order_by(Task.planned_start).all()
     changes = session.query(ChangeRequest).filter_by(project_id=project.id).all()
     kpis = session.query(KpiDefinition).filter_by(project_id=project.id).all()
@@ -44,7 +67,8 @@ def build_project_pdf(session, project: Project) -> BytesIO:
         Paragraph(
             f"Avance promedio: {summary['progress']:.2f}%. "
             f"Tareas atrasadas: {summary['task_counts']['overdue']}. "
-            f"Cambios registrados: {len(changes)}.",
+            f"Cambios registrados: {len(changes)}. "
+            f"Presupuesto autorizado: {format_money(convert_with_context(project.authorized_budget, money_context), currency)}.",
             styles["BodyText"],
         ),
         Paragraph("Capítulo 1 — Fundamentación y alcance", styles["Heading1"]),
@@ -75,6 +99,9 @@ def build_project_pdf(session, project: Project) -> BytesIO:
         )
     )
     story.append(task_table)
+    story.append(
+        Paragraph(_rate_footer(session), styles["BodyText"])
+    )
     story.extend(
         [
             Paragraph("Gantt", styles["Heading2"]),
@@ -100,7 +127,31 @@ def build_project_pdf(session, project: Project) -> BytesIO:
                 ),
             ),
             Paragraph("Capítulo 4 — Gestión del cambio", styles["Heading1"]),
+            Table(
+                [["Cambio", "Costo estimado", "Costo real"]]
+                + [
+                    [
+                        change.change_code,
+                        format_money(convert_with_context(change.estimated_cost, money_context), currency),
+                        format_money(convert_with_context(change.actual_cost, money_context), currency),
+                    ]
+                    for change in changes
+                ],
+                repeatRows=1,
+                style=TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#176b87")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ]
+                ),
+            ),
             Paragraph(f"Solicitudes registradas: {len(changes)}.", styles["BodyText"]),
+            Paragraph(
+                f"Moneda del informe: {currency}. "
+                f"Las tasas corresponden a la fecha de generación ({money_context['rate_date_display']}).",
+                styles["BodyText"],
+            ),
             Paragraph("Capítulo 5 — Tableros y conclusiones", styles["Heading1"]),
             Paragraph(
                 "Este informe resume los datos persistidos al momento de la exportación. "
