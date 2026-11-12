@@ -9,6 +9,12 @@
 </section>
 <section aria-labelledby="gantt-title">
   <h2 id="gantt-title">Gantt</h2>
+  <label for="gantt-scale">Escala</label>
+  <select id="gantt-scale" data-project-id="{{ project.id }}">
+    <option value="day">Día</option>
+    <option value="week">Semana</option>
+    <option value="month">Mes</option>
+  </select>
   <div id="gantt" role="img" aria-label="Cronograma del proyecto" data-project-id="{{ project.id }}"></div>
   <table id="gantt-table">
     <caption>Alternativa textual del Gantt</caption>

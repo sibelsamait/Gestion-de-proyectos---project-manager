@@ -26,8 +26,15 @@ def _iso(value: date | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def gantt_data(session: Session, project_id: str, currency: str = "CLP") -> dict:
+def gantt_data(
+    session: Session,
+    project_id: str,
+    currency: str = "CLP",
+    scale: str = "day",
+) -> dict:
     """Construye la representación JSON completa del Gantt."""
+    if scale not in {"day", "week", "month"}:
+        raise ValueError("La escala debe ser day, week o month.")
     tasks = session.scalars(
         select(Task).where(Task.project_id == project_id).order_by(Task.planned_start, Task.name)
     ).all()
@@ -42,6 +49,7 @@ def gantt_data(session: Session, project_id: str, currency: str = "CLP") -> dict
     today = date.today()
     return {
         **currency_context(currency, session=session),
+        "scale": scale,
         "tasks": [
             {
                 "id": task.id,

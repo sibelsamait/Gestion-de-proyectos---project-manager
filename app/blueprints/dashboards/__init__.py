@@ -18,7 +18,12 @@ def gantt(project):
         currency = validate_currency(request.args.get("currency"))
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
-    return jsonify(gantt_data(db.session, project.id, currency))
+    try:
+        return jsonify(
+            gantt_data(db.session, project.id, currency, request.args.get("scale", "day"))
+        )
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
 
 
 @dashboards_bp.get("/api/projects/<string:project_id>/tracking")

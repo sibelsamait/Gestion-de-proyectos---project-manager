@@ -7,6 +7,7 @@ from test_auth_and_rbac import login, register
 
 from app.extensions import db
 from app.models import ExchangeRate, Project, ProjectMembership, Task, User
+from app.services.pdf_report import _gantt_drawing
 
 
 def authenticated_project(client, app):
@@ -61,6 +62,20 @@ def test_pdf_accepts_currency_with_generation_rate(client, app):
     response = client.get(f"/projects/{project_id}/export_pdf?currency=USD")
     assert response.status_code == 200
     assert response.data.startswith(b"%PDF")
+
+
+def test_pdf_gantt_is_drawn_with_shapes(app):
+    with app.app_context():
+        task = Task(
+            name="Tarea dibujada",
+            planned_start=date(2026, 1, 5),
+            planned_end=date(2026, 1, 7),
+            planned_duration_days=3,
+            progress_percent=50,
+        )
+        drawing = _gantt_drawing([task], [], [])
+        assert drawing is not None
+        assert len(drawing.contents) >= 4
 
 
 def test_privacy_export_and_anonymization(client, app):
