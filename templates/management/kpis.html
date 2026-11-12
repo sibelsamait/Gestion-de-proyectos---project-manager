@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Indicadores — {{ project.name }}{% endblock %}
+{% block content %}
+<h1>Indicadores del proyecto</h1>
+<p>Define qué quieres medir, cómo se calcula y cuándo debe alertar.</p>
+
+<section aria-labelledby="new-kpi-title">
+  <h2 id="new-kpi-title">Crear indicador</h2>
+  {% set kpi = form_kpi %}
+  {% include "management/kpi_form.html" %}
+</section>
+
+<section aria-labelledby="kpi-list-title">
+  <h2 id="kpi-list-title">Indicadores guardados</h2>
+  {% if not kpis %}
+  <p>Aún no hay indicadores. Crea el primero con el formulario.</p>
+  {% endif %}
+  {% for kpi in kpis %}
+  <article class="card" aria-labelledby="kpi-{{ kpi.id }}">
+    <h3 id="kpi-{{ kpi.id }}">{{ kpi.code }} — {{ kpi.name }}</h3>
+    <p>{{ kpi.objective or "Sin explicación todavía." }}</p>
+    <p>Meta: {{ kpi.target }} · Sentido: {{ kpi.direction }} · Periodicidad: {{ kpi.periodicity }} · Fuente: {{ kpi.source }}</p>
+    <p>Resultado: {{ kpi.result if kpi.result is not none else "Sin medir" }} · Estado: {{ kpi.status }}</p>
+    <p>Umbrales: {{ kpi.thresholds }}</p>
+    {% if kpi.code in ("CHG-ADOPCION", "CHG-SATISFACCION", "CHG-RESISTENCIA") %}
+    <form method="post" action="{{ url_for('management.manual_measure_kpi', project_id=project.id, kpi_id=kpi.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="manual-{{ kpi.id }}">Valor agregado (1 a 5)
+        <span class="field-help">Ingresa un promedio del proyecto, sin nombres ni datos personales.</span>
+        <input id="manual-{{ kpi.id }}" name="manual_value" type="number" min="1" max="5" step="1" required>
+      </label>
+      <button type="submit">Guardar medición</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('management.edit_kpi', project_id=project.id, kpi_id=kpi.id) }}">Editar</a>
+    <form method="post" action="{{ url_for('management.delete_kpi', project_id=project.id, kpi_id=kpi.id) }}" data-confirm="¿Seguro que quieres eliminar este KPI y su historial?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Eliminar</button>
+    </form>
+    <details>
+      <summary>Ver historial y alertas</summary>
+      <h4>Historial de mediciones</h4>
+      {% if history[kpi.id] %}
+      <ul>
+        {% for measurement in history[kpi.id] %}
+        <li>{{ measurement.measured_at }}: {{ measurement.result }} ({{ measurement.status }})</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p>Aún no hay mediciones.</p>{% endif %}
+      <h4>Alertas</h4>
+      {% if alerts[kpi.id] %}
+      <ul>
+        {% for alert in alerts[kpi.id] %}
+        <li role="alert">{{ alert.created_at }}: {{ alert.message }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p>No hay alertas para este KPI.</p>{% endif %}
+    </details>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

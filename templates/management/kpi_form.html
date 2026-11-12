@@ -1,0 +1,60 @@
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="code">Código
+    <span class="field-help">Identificador corto, por ejemplo CAM-01.</span>
+    <input id="code" name="code" required maxlength="60" value="{{ kpi.code or '' }}">
+  </label>
+  <label for="name">Nombre
+    <input id="name" name="name" required maxlength="160" value="{{ kpi.name or '' }}">
+  </label>
+  <label for="objective">Qué mide
+    <textarea id="objective" name="objective" maxlength="2000">{{ kpi.objective or '' }}</textarea>
+  </label>
+  <label for="scope">Ámbito
+    <select id="scope" name="scope">
+      {% for value, label in (("project", "Proyecto"), ("task", "Actividad"), ("milestone", "Hito"), ("change", "Cambio")) %}
+      <option value="{{ value }}" {% if kpi.scope == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="variables">Variables
+    <span class="field-help">Escríbelas separadas por coma. Solo se permiten variables seguras del sistema.</span>
+    <input id="variables" name="variables" required value="{{ (kpi.variables or [])|join(', ') }}">
+  </label>
+  <label for="formula">Fórmula
+    <span class="field-help">Usa números, variables declaradas y funciones simples como abs, min, max o round.</span>
+    <input id="formula" name="formula" required maxlength="500" value="{{ kpi.formula or '' }}">
+  </label>
+  <label for="unit">Unidad <input id="unit" name="unit" maxlength="40" value="{{ kpi.unit or '' }}"></label>
+  <label for="target">Meta
+    <input id="target" name="target" required type="number" step="0.0001" value="{{ kpi.target if kpi.target is not none else '' }}">
+  </label>
+  <label for="direction">Sentido
+    <select id="direction" name="direction">
+      <option value="higher" {% if kpi.direction == "higher" %}selected{% endif %}>Mayor es mejor</option>
+      <option value="lower" {% if kpi.direction == "lower" %}selected{% endif %}>Menor es mejor</option>
+      <option value="range" {% if kpi.direction == "range" %}selected{% endif %}>Debe estar en un rango</option>
+    </select>
+  </label>
+  <fieldset>
+    <legend>Umbrales del semáforo</legend>
+    <label for="threshold_green">Verde <input id="threshold_green" name="threshold_green" type="number" step="0.0001" value="{{ (kpi.thresholds or {}).get('green', '') }}"></label>
+    <label for="threshold_yellow">Amarillo <input id="threshold_yellow" name="threshold_yellow" type="number" step="0.0001" value="{{ (kpi.thresholds or {}).get('yellow', '') }}"></label>
+    <label for="threshold_min">Mínimo del rango <input id="threshold_min" name="threshold_min" type="number" step="0.0001" value="{{ (kpi.thresholds or {}).get('min', '') }}"></label>
+    <label for="threshold_max">Máximo del rango <input id="threshold_max" name="threshold_max" type="number" step="0.0001" value="{{ (kpi.thresholds or {}).get('max', '') }}"></label>
+  </fieldset>
+  <label for="periodicity">Periodicidad
+    <select id="periodicity" name="periodicity">
+      {% for value in ("manual", "diaria", "semanal", "mensual", "automatic") %}
+      <option value="{{ value }}" {% if kpi.periodicity == value %}selected{% endif %}>{{ value|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="source">Fuente
+    <select id="source" name="source">
+      <option value="automatic" {% if kpi.source == "automatic" %}selected{% endif %}>Automática</option>
+      <option value="manual" {% if kpi.source == "manual" %}selected{% endif %}>Ingreso manual agregado</option>
+    </select>
+  </label>
+  <button type="submit">Guardar KPI</button>
+</form>

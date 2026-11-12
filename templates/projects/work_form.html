@@ -26,7 +26,7 @@
     <input id="hourly_rate" name="hourly_rate" type="number" min="0" step="0.01" value="{{ item.hourly_rate }}">
   </label>
   <label>Horas semanales <input name="hours_per_week" type="number" min="0" step="0.01" value="{{ item.hours_per_week }}"></label>
-  <label>Semanas <input name="weeks" type="number" min="0" step="0.01" value="{{ item.weeks }}"></label>
+  <p class="field-help">Las semanas del profesional se calculan automáticamente según los días hábiles de cada actividad.</p>
   <label>Cantidad <input name="quantity" type="number" min="0" step="0.01" value="{{ item.quantity }}"></label>
   <label for="unit_cost">Valor unitario
     <span class="field-help">Costo base en CLP por unidad.</span>

@@ -181,7 +181,6 @@ def create_work_item(project: Project, kind: str) -> str:
                 item.specialty = _text("specialty", 120, False)
                 item.hourly_rate = _decimal(request.form.get("hourly_rate"), "valor hora")
                 item.hours_per_week = _decimal(request.form.get("hours_per_week"), "horas semanales")
-                item.weeks = _decimal(request.form.get("weeks"), "semanas")
                 item.quantity = _decimal(request.form.get("quantity"), "cantidad")
                 item.unit_cost = _decimal(request.form.get("unit_cost"), "valor unitario")
             else:
@@ -235,7 +234,6 @@ def edit_work_item(project: Project, kind: str, item_id: str) -> str:
                 item.specialty = _text("specialty", 120, False)
                 item.hourly_rate = _decimal(request.form.get("hourly_rate"), "valor hora")
                 item.hours_per_week = _decimal(request.form.get("hours_per_week"), "horas semanales")
-                item.weeks = _decimal(request.form.get("weeks"), "semanas")
                 item.quantity = _decimal(request.form.get("quantity"), "cantidad")
                 item.unit_cost = _decimal(request.form.get("unit_cost"), "valor unitario")
             else:

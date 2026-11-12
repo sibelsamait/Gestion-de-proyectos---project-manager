@@ -20,6 +20,7 @@ from app.models import (
     TaskResourceAssignment,
     User,
 )
+from app.services.project_state import STANDARD_CHANGE_KPIS
 
 
 def _password() -> str:
@@ -196,23 +197,45 @@ def seed_demo() -> tuple[str, str]:
                 estimated_cost=Decimal(index * 100),
             )
         )
-    for index in range(12):
+    for definition in STANDARD_CHANGE_KPIS:
         db.session.add(
             KpiDefinition(
                 project_id=project.id,
-                code=f"CHG-{index + 1:02d}",
-                name=f"KPI cambio demo {index + 1}",
+                code=definition["code"],
+                name=definition["name"],
+                objective=definition["objective"],
                 scope="change",
-                variables=["cambios_aprobados", "cambios_totales"],
-                formula="cambios_aprobados / cambios_totales * 100",
-                unit="%",
-                target=Decimal(80),
-                direction="higher",
-                thresholds={"green": 80, "yellow": 50},
-                source="automatic",
-                periodicity="manual",
+                variables=definition["variables"],
+                formula=definition["formula"],
+                unit=definition["unit"],
+                target=definition["target"],
+                direction=definition["direction"],
+                thresholds=definition["thresholds"],
+                source=(
+                    "manual"
+                    if definition["code"]
+                    in {"CHG-ADOPCION", "CHG-SATISFACCION", "CHG-RESISTENCIA"}
+                    else "automatic"
+                ),
+                periodicity="automatic",
             )
         )
+    db.session.flush()
+    structured_change = db.session.scalar(
+        select(ChangeRequest).where(
+            ChangeRequest.project_id == project.id,
+            ChangeRequest.change_code == "CH-03",
+        )
+    )
+    structured_change.impact = {
+        "additional_days": {"task_id": tasks[2].id, "days": 1},
+        "additional_cost": "300",
+        "additional_resource": {
+            "task_id": tasks[2].id,
+            "resource_id": resources[0].id,
+            "hours": "8",
+        },
+    }
     db.session.commit()
     return admin_password, user_password
 

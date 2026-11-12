@@ -7,7 +7,9 @@ const escapeText = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => 
 export async function renderGantt(projectId) {
   const currency = selectedCurrency();
   const scale = document.querySelector('#gantt-scale')?.value || 'day';
-  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/gantt?currency=${currency}&scale=${scale}`, {
+  const form = document.querySelector('#tracking-filters');
+  const filters = form ? new URLSearchParams(new FormData(form)).toString() : '';
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/gantt?currency=${currency}&scale=${scale}&${filters}`, {
     headers: { Accept: 'application/json' }
   });
   if (!response.ok) throw new Error('No fue posible cargar el Gantt.');
@@ -100,5 +102,11 @@ if (projectId) renderGantt(projectId).catch((error) => {
 document.querySelector('#gantt-scale')?.addEventListener('change', () => {
   if (projectId) renderGantt(projectId).catch((error) => {
     document.querySelector('#gantt').textContent = error.message;
+  });
+
+  window.addEventListener('dashboard-filters-changed', () => {
+    if (projectId) renderGantt(projectId).catch((error) => {
+      document.querySelector('#gantt').textContent = error.message;
+    });
   });
 });

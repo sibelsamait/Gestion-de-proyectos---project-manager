@@ -3,9 +3,43 @@
 {% block content %}
 <h1>Tablero de seguimiento</h1>
 <p>Proyecto: {{ project.name }}</p>
+<form id="tracking-filters">
+  <fieldset>
+    <legend>Filtros del tablero</legend>
+    <label for="filter-stage">Etapa
+      <select id="filter-stage" name="stage">
+        <option value="">Todas</option>
+        {% for stage in stages %}<option value="{{ stage }}">{{ stage }}</option>{% endfor %}
+      </select>
+    </label>
+    <label for="filter-from">Desde <input id="filter-from" name="date_from" type="date"></label>
+    <label for="filter-to">Hasta <input id="filter-to" name="date_to" type="date"></label>
+    <label for="filter-responsible">Responsable
+      <select id="filter-responsible" name="responsible_id">
+        <option value="">Todos</option>
+        {% for identifier, name in responsible_options %}<option value="{{ identifier }}">{{ name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Aplicar filtros</button>
+  </fieldset>
+</form>
+<p>Elegimos avance, hitos, costos, utilización y SPI/CPI porque muestran tiempo,
+dinero y capacidad en una sola vista.</p>
 <section aria-labelledby="tracking-kpis">
   <h2 id="tracking-kpis">Indicadores</h2>
   <div id="tracking-summary" aria-live="polite">Cargando datos…</div>
+</section>
+<section aria-labelledby="tracking-cost-title">
+  <h2 id="tracking-cost-title">Costos por categoría</h2>
+  <table id="tracking-cost-table"><caption>Tabla alternativa de costos</caption><thead><tr><th>Categoría</th><th>Monto</th></tr></thead><tbody></tbody></table>
+</section>
+<section aria-labelledby="tracking-kpi-title">
+  <h2 id="tracking-kpi-title">KPI de proyecto</h2>
+  <table id="tracking-kpi-table"><caption>Tabla alternativa de indicadores</caption><thead><tr><th>KPI</th><th>Resultado</th><th>Estado</th></tr></thead><tbody></tbody></table>
+</section>
+<section aria-labelledby="tracking-task-title">
+  <h2 id="tracking-task-title">Actividades filtradas</h2>
+  <table id="tracking-task-table"><caption>Tabla alternativa de actividades</caption><thead><tr><th>Actividad</th><th>Etapa</th><th>Inicio</th><th>Término</th><th>Avance</th></tr></thead><tbody></tbody></table>
 </section>
 <section aria-labelledby="gantt-title">
   <h2 id="gantt-title">Gantt</h2>

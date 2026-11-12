@@ -1,5 +1,6 @@
 """Evaluador seguro y auditable de KPI."""
 
+import ast
 from decimal import Decimal, InvalidOperation
 
 from simpleeval import (
@@ -35,6 +36,16 @@ ALLOWED_VARIABLES = frozenset(
         "cpi",
         "hitos_evaluados",
         "tareas_cumplidas",
+        "cambios_rechazados",
+        "dias_ciclo_promedio",
+        "impacto_plazo_promedio",
+        "impacto_presupuesto_total",
+        "prioridad_alta_pct",
+        "propagacion_pct",
+        "adopcion_pct",
+        "satisfaccion",
+        "cumplimiento_etapas",
+        "resistencia_pct",
     }
 )
 ALLOWED_FUNCTIONS = {"abs": abs, "min": min, "max": max, "round": round}
@@ -61,9 +72,25 @@ def _validate_definition(kpi: KpiDefinition) -> None:
     if not kpi.formula.strip():
         raise KpiError("La fórmula no puede estar vacía.")
     try:
-        SimpleEval(functions=ALLOWED_FUNCTIONS).parse(kpi.formula)
+        tree = SimpleEval(functions=ALLOWED_FUNCTIONS).parse(kpi.formula)
+        allowed_names = variables | set(ALLOWED_FUNCTIONS)
+        formula_names = {
+            node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+        }
+        unknown_formula_names = formula_names - allowed_names
+        if unknown_formula_names:
+            raise KpiError(
+                "La fórmula usa variables no declaradas: "
+                + ", ".join(sorted(unknown_formula_names))
+                + "."
+            )
     except (NameNotDefined, SyntaxError, TypeError, ValueError, ZeroDivisionError) as exc:
         raise KpiError("La fórmula del KPI no es válida o usa nombres no declarados.") from exc
+
+
+def validate_definition(kpi: KpiDefinition) -> None:
+    """Valida una definición antes de guardarla desde un formulario."""
+    _validate_definition(kpi)
 
 
 def evaluate_kpi(session: Session, kpi: KpiDefinition, values: dict[str, Decimal | int | float]) -> KpiMeasurement:

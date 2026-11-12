@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% set impact = change.impact or {} %}
+{% set schedule = impact.get("additional_days", {}) %}
+{% set resource_impact = impact.get("additional_resource", {}) %}
+{% block title %}{{ "Editar" if change.id else "Nueva" }} solicitud de cambio{% endblock %}
+{% block content %}
+<h1>{{ "Editar" if change.id else "Nueva" }} solicitud de cambio</h1>
+<p>Completa los datos en palabras simples. El impacto se aplicará solo cuando el director o un administrador lo apruebe.</p>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="change_code">Identificador
+    <span class="field-help">Ejemplo: CAM-001.</span>
+    <input id="change_code" name="change_code" required maxlength="60" value="{{ change.change_code or '' }}">
+  </label>
+  <label for="description">Descripción
+    <textarea id="description" name="description" required maxlength="5000">{{ change.description or '' }}</textarea>
+  </label>
+  <label for="justification">Justificación
+    <textarea id="justification" name="justification" maxlength="5000">{{ change.justification or '' }}</textarea>
+  </label>
+  <label for="change_type">Tipo
+    <select id="change_type" name="change_type" required>
+      {% for value, label in (("alcance", "Alcance"), ("tiempo", "Tiempo"), ("costo", "Costo"), ("recurso", "Recurso"), ("tecnologia", "Tecnología"), ("organizacion", "Organización")) %}
+      <option value="{{ value }}" {% if change.change_type == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="priority">Prioridad
+    <select id="priority" name="priority" required>
+      {% for value in ("baja", "media", "alta", "critica") %}
+      <option value="{{ value }}" {% if change.priority == value %}selected{% endif %}>{{ value|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="risk">Riesgo
+    <select id="risk" name="risk" required>
+      {% for value in ("bajo", "medio", "alto", "critico") %}
+      <option value="{{ value }}" {% if change.risk == value %}selected{% endif %}>{{ value|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="committed_date">Fecha comprometida
+    <input id="committed_date" name="committed_date" type="date" value="{{ change.committed_date or '' }}">
+  </label>
+  <label for="estimated_cost">Costo estimado
+    <input id="estimated_cost" name="estimated_cost" type="number" min="0" step="0.01" value="{{ change.estimated_cost or 0 }}">
+  </label>
+  <h2>Impacto que se aplicará al aprobar</h2>
+  <p class="field-help">Puedes indicar uno o varios impactos. Las horas agregadas usan el costo profesional calculado por la duración de la actividad.</p>
+  <label for="impact_task_id">Actividad afectada
+    <select id="impact_task_id" name="impact_task_id">
+      <option value="">Selecciona una actividad</option>
+      {% for task in tasks %}
+      <option value="{{ task.id }}" {% if schedule.get("task_id") == task.id or resource_impact.get("task_id") == task.id %}selected{% endif %}>{{ task.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="additional_days">Días adicionales
+    <input id="additional_days" name="additional_days" type="number" min="0" step="1" value="{{ schedule.get('days', '') }}">
+  </label>
+  <label for="additional_cost">Costo adicional
+    <input id="additional_cost" name="additional_cost" type="number" min="0" step="0.01" value="{{ impact.get('additional_cost', '') }}">
+  </label>
+  <label for="impact_resource_id">Recurso para horas adicionales
+    <select id="impact_resource_id" name="impact_resource_id">
+      <option value="">Selecciona un recurso</option>
+      {% for resource in resources %}
+      <option value="{{ resource.id }}" {% if resource_impact.get("resource_id") == resource.id %}selected{% endif %}>{{ resource.name }} ({{ resource.type }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="additional_hours">Horas adicionales
+    <input id="additional_hours" name="additional_hours" type="number" min="0" step="0.01" value="{{ resource_impact.get('hours', '') }}">
+  </label>
+  <label for="evidence">Evidencia o enlace
+    <textarea id="evidence" name="evidence" maxlength="5000">{{ change.evidence or '' }}</textarea>
+  </label>
+  <button type="submit">Guardar solicitud</button>
+  <a href="{{ url_for('dashboards.changes_page', project_id=project.id) }}">Cancelar</a>
+</form>
+{% endblock %}

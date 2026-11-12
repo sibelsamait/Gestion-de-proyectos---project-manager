@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Editar KPI — {{ project.name }}{% endblock %}
+{% block content %}
+<h1>Editar indicador</h1>
+{% include "management/kpi_form.html" %}
+<p><a href="{{ url_for('management.kpi_list', project_id=project.id) }}">Volver a indicadores</a></p>
+{% endblock %}

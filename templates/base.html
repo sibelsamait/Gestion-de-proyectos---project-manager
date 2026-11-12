@@ -49,6 +49,7 @@
     <a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='task') }}">Actividades</a>
     <a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='resource') }}">Recursos y costos</a>
     <a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='milestone') }}">Hitos</a>
+    <a href="{{ url_for('management.kpi_list', project_id=session.get('active_project_id')) }}">Indicadores</a>
     <a href="{{ url_for('dashboards.tracking_page', project_id=session.get('active_project_id')) }}">Tablero 1</a>
     <a href="{{ url_for('dashboards.changes_page', project_id=session.get('active_project_id')) }}">Tablero 2</a>
     <a href="{{ url_for('reports.export_pdf', project_id=session.get('active_project_id')) }}">Informe PDF</a>
@@ -64,7 +65,7 @@
         <li><a href="{{ url_for('dashboards.tracking_page', project_id=session.get('active_project_id')) }}">Relaciones entre actividades</a></li>
         <li><a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='resource') }}">Recursos y costos</a></li>
         <li><a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='milestone') }}">Hitos</a></li>
-        <li><a href="{{ url_for('dashboards.tracking_page', project_id=session.get('active_project_id')) }}">Indicadores</a></li>
+        <li><a href="{{ url_for('management.kpi_list', project_id=session.get('active_project_id')) }}">Indicadores</a></li>
         <li><a href="{{ url_for('dashboards.changes_page', project_id=session.get('active_project_id')) }}">Cambios</a></li>
         <li><a href="{{ url_for('dashboards.tracking_page', project_id=session.get('active_project_id')) }}">Tableros</a></li>
         <li><a href="{{ url_for('reports.export_pdf', project_id=session.get('active_project_id')) }}">Informe PDF</a></li>

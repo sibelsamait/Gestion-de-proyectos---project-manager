@@ -18,7 +18,12 @@ from ..models import (
     Task,
     TaskResourceAssignment,
 )
-from .costs import CostBreakdown, professional_overallocations, task_cost
+from .costs import (
+    CostBreakdown,
+    professional_overallocations,
+    project_cost_adjustments,
+    task_cost,
+)
 from .kpi_engine import KpiError, evaluate_kpi
 from .scheduler import recalculate_project
 
@@ -125,6 +130,154 @@ STANDARD_PROJECT_KPIS = (
     },
 )
 
+STANDARD_CHANGE_KPIS = tuple(
+    {
+        "code": code,
+        "name": name,
+        "objective": objective,
+        "variables": variables,
+        "formula": formula,
+        "unit": unit,
+        "target": target,
+        "direction": direction,
+        "thresholds": thresholds,
+    }
+    for code, name, objective, variables, formula, unit, target, direction, thresholds in (
+        (
+            "CHG-TOTAL",
+            "Total de solicitudes",
+            "Cuenta todas las solicitudes registradas.",
+            ["cambios_totales"],
+            "cambios_totales",
+            "solicitudes",
+            Decimal(0),
+            "lower",
+            {"green": 5, "yellow": 10},
+        ),
+        (
+            "CHG-APROB",
+            "Tasa de aprobación",
+            "Mide qué porcentaje de solicitudes fue aprobado.",
+            ["cambios_aprobados", "cambios_totales"],
+            "cambios_aprobados / cambios_totales * 100",
+            "%",
+            Decimal(80),
+            "higher",
+            {"green": 80, "yellow": 50},
+        ),
+        (
+            "CHG-RECHAZO",
+            "Tasa de rechazo",
+            "Mide qué porcentaje de solicitudes fue rechazado.",
+            ["cambios_rechazados", "cambios_totales"],
+            "cambios_rechazados / cambios_totales * 100",
+            "%",
+            Decimal(0),
+            "lower",
+            {"green": 10, "yellow": 25},
+        ),
+        (
+            "CHG-CICLO",
+            "Tiempo de ciclo",
+            "Calcula los días promedio desde el registro hasta el cierre.",
+            ["dias_ciclo_promedio"],
+            "dias_ciclo_promedio",
+            "días",
+            Decimal(10),
+            "lower",
+            {"green": 10, "yellow": 20},
+        ),
+        (
+            "CHG-PLAZO",
+            "Impacto en plazo",
+            "Muestra los días adicionales promedio de los cambios.",
+            ["impacto_plazo_promedio"],
+            "impacto_plazo_promedio",
+            "días",
+            Decimal(0),
+            "lower",
+            {"green": 0, "yellow": 5},
+        ),
+        (
+            "CHG-PRESUPUESTO",
+            "Impacto en presupuesto",
+            "Suma el costo adicional declarado por los cambios.",
+            ["impacto_presupuesto_total"],
+            "impacto_presupuesto_total",
+            "CLP",
+            Decimal(0),
+            "lower",
+            {"green": 0, "yellow": 1},
+        ),
+        (
+            "CHG-PRIORIDAD",
+            "Porcentaje de prioridad alta",
+            "Mide solicitudes de prioridad alta o crítica.",
+            ["prioridad_alta_pct"],
+            "prioridad_alta_pct",
+            "%",
+            Decimal(20),
+            "lower",
+            {"green": 20, "yellow": 40},
+        ),
+        (
+            "CHG-PROPAGACION",
+            "Tasa de propagación a la planificación",
+            "Mide cambios que modifican tareas o fechas.",
+            ["propagacion_pct"],
+            "propagacion_pct",
+            "%",
+            Decimal(20),
+            "lower",
+            {"green": 20, "yellow": 40},
+        ),
+        (
+            "CHG-ADOPCION",
+            "Adopción del cambio",
+            "Mide cambios que llegaron al seguimiento de adopción.",
+            ["adopcion_pct"],
+            "adopcion_pct",
+            "escala 1-5",
+            Decimal(4),
+            "higher",
+            {"green": 4, "yellow": 3},
+        ),
+        (
+            "CHG-SATISFACCION",
+            "Satisfacción",
+            "Permite registrar una satisfacción agregada sin datos personales.",
+            ["satisfaccion"],
+            "satisfaccion",
+            "escala 1-5",
+            Decimal(4),
+            "higher",
+            {"green": 4, "yellow": 3},
+        ),
+        (
+            "CHG-ETAPAS",
+            "Cumplimiento de las 10 etapas",
+            "Mide el avance promedio dentro del flujo de cambios.",
+            ["cumplimiento_etapas"],
+            "cumplimiento_etapas",
+            "%",
+            Decimal(100),
+            "higher",
+            {"green": 90, "yellow": 70},
+        ),
+        (
+            "CHG-RESISTENCIA",
+            "Resistencia al cambio",
+            "Mide cambios con riesgo alto o crítico.",
+            ["resistencia_pct"],
+            "resistencia_pct",
+            "escala 1-5",
+            Decimal(2),
+            "lower",
+            {"green": 2, "yellow": 3},
+        ),
+    )
+)
+
 
 def _cost_totals(session: Session, tasks: list[Task]) -> tuple[Decimal, Decimal]:
     """Suma costos planificados y reales de todas las tareas."""
@@ -134,6 +287,7 @@ def _cost_totals(session: Session, tasks: list[Task]) -> tuple[Decimal, Decimal]
         breakdown: CostBreakdown = task_cost(session, task.id)
         planned += breakdown.planned
         actual += breakdown.actual
+    planned += project_cost_adjustments(session, tasks[0].project_id) if tasks else Decimal(0)
     return planned.quantize(Decimal("0.01")), actual.quantize(Decimal("0.01"))
 
 
@@ -181,6 +335,47 @@ def _kpi_values(
         )
         or 0
     )
+    changes_rejected = Decimal(
+        session.scalar(
+            select(func.count(ChangeRequest.id)).where(
+                ChangeRequest.project_id == project_id,
+                ChangeRequest.status == "rejected",
+            )
+        )
+        or 0
+    )
+    changes = list(
+        session.scalars(select(ChangeRequest).where(ChangeRequest.project_id == project_id))
+    )
+    total_changes = len(changes)
+    cycle_days = [
+        (change.actual_date - change.requested_at).days
+        for change in changes
+        if change.actual_date and change.requested_at
+    ]
+    additional_days = [
+        Decimal(str(change.impact.get("additional_days", {}).get("days", 0)))
+        for change in changes
+        if isinstance(change.impact, dict)
+        and isinstance(change.impact.get("additional_days"), dict)
+    ]
+    budget_impacts = [
+        Decimal(str(change.impact.get("additional_cost", change.impact.get("budget_delta", 0))))
+        for change in changes
+        if isinstance(change.impact, dict)
+    ]
+    stage_positions = {
+        "Registro": 1,
+        "Clasificación": 2,
+        "Evaluación de impacto": 3,
+        "Análisis de riesgo": 4,
+        "Decisión": 5,
+        "Planificación de la implementación": 6,
+        "Implementación": 7,
+        "Verificación": 8,
+        "Cierre con resultado": 9,
+        "Seguimiento de adopción": 10,
+    }
     on_time = Decimal(sum(1 for milestone in milestones if milestone.status == "cumplido"))
     overdue_milestones = Decimal(sum(1 for milestone in milestones if milestone.status == "vencido"))
     completed_tasks = Decimal(sum(1 for task in tasks if task.progress_percent >= 100))
@@ -198,6 +393,66 @@ def _kpi_values(
         "horas_disponibles": Decimal(str(available)),
         "cambios_aprobados": changes_approved,
         "cambios_totales": changes_total,
+        "cambios_rechazados": changes_rejected,
+        "dias_ciclo_promedio": (
+            Decimal(sum(cycle_days)) / Decimal(len(cycle_days)) if cycle_days else Decimal(0)
+        ),
+        "impacto_plazo_promedio": (
+            sum(additional_days, Decimal(0)) / Decimal(total_changes)
+            if total_changes
+            else Decimal(0)
+        ),
+        "impacto_presupuesto_total": sum(budget_impacts, Decimal(0)),
+        "prioridad_alta_pct": (
+            Decimal(
+                sum(change.priority in {"alta", "critica"} for change in changes)
+            )
+            / Decimal(total_changes)
+            * 100
+            if total_changes
+            else Decimal(0)
+        ),
+        "propagacion_pct": (
+            Decimal(
+                sum(
+                    isinstance(change.impact, dict)
+                    and bool(change.impact.get("additional_days") or change.impact.get("tasks"))
+                    for change in changes
+                )
+            )
+            / Decimal(total_changes)
+            * 100
+            if total_changes
+            else Decimal(0)
+        ),
+        "adopcion_pct": (
+            Decimal(
+                sum(change.stage == "Seguimiento de adopción" for change in changes)
+            )
+            / Decimal(total_changes)
+            * 100
+            if total_changes
+            else Decimal(0)
+        ),
+        "satisfaccion": Decimal(0),
+        "cumplimiento_etapas": (
+            sum(
+                (Decimal(stage_positions.get(change.stage, 0)) for change in changes),
+                Decimal(0),
+            )
+            / Decimal(total_changes)
+            / Decimal(10)
+            * 100
+            if total_changes
+            else Decimal(0)
+        ),
+        "resistencia_pct": (
+            Decimal(sum(change.risk in {"alto", "critico"} for change in changes))
+            / Decimal(total_changes)
+            * 100
+            if total_changes
+            else Decimal(0)
+        ),
         "hitos_evaluados": on_time + overdue_milestones,
         "tareas_cumplidas": completed_tasks,
         **earned,
@@ -261,6 +516,47 @@ def ensure_standard_project_kpis(session: Session, project_id: str) -> None:
         )
 
 
+def ensure_standard_change_kpis(session: Session, project_id: str) -> None:
+    """Crea o actualiza los doce KPI estándar de gestión del cambio."""
+    existing = {
+        kpi.code: kpi
+        for kpi in session.scalars(
+            select(KpiDefinition).where(
+                KpiDefinition.project_id == project_id,
+                KpiDefinition.scope == "change",
+            )
+        )
+    }
+    for definition in STANDARD_CHANGE_KPIS:
+        kpi = existing.get(definition["code"])
+        if kpi is None:
+            session.add(
+                KpiDefinition(
+                    project_id=project_id,
+                    scope="change",
+                    periodicity="automatic",
+                    source=(
+                        "manual"
+                        if definition["code"]
+                        in {"CHG-ADOPCION", "CHG-SATISFACCION", "CHG-RESISTENCIA"}
+                        else "automatic"
+                    ),
+                    status="pending",
+                    **definition,
+                )
+            )
+        else:
+            for key, value in definition.items():
+                setattr(kpi, key, value)
+            kpi.periodicity = "automatic"
+            kpi.source = (
+                "manual"
+                if definition["code"]
+                in {"CHG-ADOPCION", "CHG-SATISFACCION", "CHG-RESISTENCIA"}
+                else "automatic"
+            )
+
+
 def _refresh_automatic_kpis(
     session: Session,
     project_id: str,
@@ -281,6 +577,7 @@ def _refresh_automatic_kpis(
             "hitos_evaluados",
             "tareas_evaluadas",
             "horas_disponibles",
+            "cambios_totales",
         }
         if any(values.get(name) == 0 for name in denominators.intersection(kpi.variables or [])):
             continue
@@ -309,6 +606,7 @@ def recalculate_project_state(session: Session, project_id: str) -> ProjectState
     project.progress_percent = progress
     values = _kpi_values(session, project_id, tasks, milestones, planned_cost, actual_cost)
     ensure_standard_project_kpis(session, project_id)
+    ensure_standard_change_kpis(session, project_id)
     session.flush()
     _refresh_automatic_kpis(session, project_id, values)
     return ProjectState(
