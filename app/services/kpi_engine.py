@@ -1,5 +1,6 @@
 """Evaluador seguro y auditable de KPI."""
 
+import ast
 from decimal import Decimal, InvalidOperation
 
 from simpleeval import (
@@ -10,7 +11,7 @@ from simpleeval import (
 )
 from sqlalchemy.orm import Session
 
-from ..models import KpiDefinition, KpiMeasurement
+from ..models import KpiAlert, KpiDefinition, KpiMeasurement
 
 ALLOWED_VARIABLES = frozenset(
     {
@@ -26,6 +27,25 @@ ALLOWED_VARIABLES = frozenset(
         "horas_disponibles",
         "cambios_aprobados",
         "cambios_totales",
+        "valor_planificado",
+        "valor_ganado",
+        "variacion_costo",
+        "variacion_plazo",
+        "costo_estimado_terminar",
+        "spi",
+        "cpi",
+        "hitos_evaluados",
+        "tareas_cumplidas",
+        "cambios_rechazados",
+        "dias_ciclo_promedio",
+        "impacto_plazo_promedio",
+        "impacto_presupuesto_total",
+        "prioridad_alta_pct",
+        "propagacion_pct",
+        "adopcion_pct",
+        "satisfaccion",
+        "cumplimiento_etapas",
+        "resistencia_pct",
     }
 )
 ALLOWED_FUNCTIONS = {"abs": abs, "min": min, "max": max, "round": round}
@@ -52,9 +72,25 @@ def _validate_definition(kpi: KpiDefinition) -> None:
     if not kpi.formula.strip():
         raise KpiError("La fórmula no puede estar vacía.")
     try:
-        SimpleEval(functions=ALLOWED_FUNCTIONS).parse(kpi.formula)
+        tree = SimpleEval(functions=ALLOWED_FUNCTIONS).parse(kpi.formula)
+        allowed_names = variables | set(ALLOWED_FUNCTIONS)
+        formula_names = {
+            node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+        }
+        unknown_formula_names = formula_names - allowed_names
+        if unknown_formula_names:
+            raise KpiError(
+                "La fórmula usa variables no declaradas: "
+                + ", ".join(sorted(unknown_formula_names))
+                + "."
+            )
     except (NameNotDefined, SyntaxError, TypeError, ValueError, ZeroDivisionError) as exc:
         raise KpiError("La fórmula del KPI no es válida o usa nombres no declarados.") from exc
+
+
+def validate_definition(kpi: KpiDefinition) -> None:
+    """Valida una definición antes de guardarla desde un formulario."""
+    _validate_definition(kpi)
 
 
 def evaluate_kpi(session: Session, kpi: KpiDefinition, values: dict[str, Decimal | int | float]) -> KpiMeasurement:
@@ -78,6 +114,7 @@ def evaluate_kpi(session: Session, kpi: KpiDefinition, values: dict[str, Decimal
     ) as exc:
         raise KpiError("No fue posible evaluar la fórmula del KPI.") from exc
     status = classify_result(result, kpi)
+    previous_status = kpi.status
     kpi.result = result
     kpi.status = status
     measurement = KpiMeasurement(
@@ -87,6 +124,17 @@ def evaluate_kpi(session: Session, kpi: KpiDefinition, values: dict[str, Decimal
         inputs=_json_values(values),
     )
     session.add(measurement)
+    if status in {"yellow", "red"} and previous_status != status:
+        session.flush()
+        session.add(
+            KpiAlert(
+                kpi_id=kpi.id,
+                measurement_id=measurement.id,
+                previous_status=previous_status,
+                current_status=status,
+                message=f"El KPI {kpi.name} cambió de {previous_status} a {status}.",
+            )
+        )
     return measurement
 
 

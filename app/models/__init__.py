@@ -6,8 +6,11 @@ from .management import (
     ChangeApplication,
     ChangeBaseline,
     ChangeRequest,
+    ChangeStageHistory,
+    KpiAlert,
     KpiDefinition,
     KpiMeasurement,
+    milestone_kpis,
 )
 from .project import Project, ProjectMembership
 from .user import User
@@ -18,6 +21,7 @@ from .work import (
     Task,
     TaskDependency,
     TaskResourceAssignment,
+    milestone_tasks,
 )
 
 __all__ = [
@@ -25,7 +29,9 @@ __all__ = [
     "ChangeApplication",
     "ChangeBaseline",
     "ChangeRequest",
+    "ChangeStageHistory",
     "ExchangeRate",
+    "KpiAlert",
     "KpiDefinition",
     "KpiMeasurement",
     "Milestone",
@@ -37,4 +43,6 @@ __all__ = [
     "TaskDependency",
     "TaskResourceAssignment",
     "User",
+    "milestone_kpis",
+    "milestone_tasks",
 ]

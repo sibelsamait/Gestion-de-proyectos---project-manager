@@ -95,8 +95,9 @@ anonimiza autoría histórica cuando la integridad del proyecto requiere
 conservarla. `/privacidad` y `/terminos` son borradores académicos, no asesoría
 legal.
 
-Consulta [docs/api.md](./docs/api.md), [docs/guion_demo.md](./docs/guion_demo.md)
-y [docs/licencias.md](./docs/licencias.md). La solución y sus decisiones de
+Consulta [docs/api.md](./docs/api.md), [docs/guion_demo.md](./docs/guion_demo.md),
+[docs/entrega_final.md](./docs/entrega_final.md) y [docs/licencias.md](./docs/licencias.md).
+La solución y sus decisiones de
 cumplimiento están descritas en [docs/00_cumplimiento.md](./docs/00_cumplimiento.md).
 
 ## Solución de problemas

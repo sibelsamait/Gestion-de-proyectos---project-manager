@@ -32,6 +32,7 @@
         {% endif %}
       </div>
       <nav aria-label="Cuenta">
+        <span class="user-role">Rol: {{ current_user.role|replace("_", " ") }}</span>
         <a href="{{ url_for('privacy.export_data') }}">Descargar mis datos</a>
         <a href="{{ url_for('privacy.privacy_page') }}">Privacidad</a>
         <a href="{{ url_for('privacy.terms_page') }}">Términos</a>
@@ -42,13 +43,49 @@
       </form>
     {% endif %}
   </header>
-  <main>
+  {% if current_user.is_authenticated and session.get("active_project_id") %}
+  <nav class="project-nav" aria-label="Navegación del proyecto">
+    <a href="{{ url_for('projects.detail', project_id=session.get('active_project_id')) }}">Ruta guiada</a>
+    <a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='task') }}">Actividades</a>
+    <a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='resource') }}">Recursos y costos</a>
+    <a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='milestone') }}">Hitos</a>
+    <a href="{{ url_for('management.kpi_list', project_id=session.get('active_project_id')) }}">Indicadores</a>
+    <a href="{{ url_for('dashboards.tracking_page', project_id=session.get('active_project_id')) }}">Tablero 1</a>
+    <a href="{{ url_for('dashboards.changes_page', project_id=session.get('active_project_id')) }}">Tablero 2</a>
+    <a href="{{ url_for('reports.export_pdf', project_id=session.get('active_project_id')) }}">Informe PDF</a>
+  </nav>
+  {% endif %}
+  <main class="page-layout">
+    {% if current_user.is_authenticated and session.get("active_project_id") %}
+    <aside class="sidebar" aria-label="Pasos del proyecto">
+      <h2>Ruta del proyecto</h2>
+      <ol>
+        <li><a href="{{ url_for('work.edit_project', project_id=session.get('active_project_id')) }}">Datos del proyecto</a></li>
+        <li><a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='task') }}">Actividades</a></li>
+        <li><a href="{{ url_for('dashboards.tracking_page', project_id=session.get('active_project_id')) }}">Relaciones entre actividades</a></li>
+        <li><a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='resource') }}">Recursos y costos</a></li>
+        <li><a href="{{ url_for('work.create_work_item', project_id=session.get('active_project_id'), kind='milestone') }}">Hitos</a></li>
+        <li><a href="{{ url_for('management.kpi_list', project_id=session.get('active_project_id')) }}">Indicadores</a></li>
+        <li><a href="{{ url_for('dashboards.changes_page', project_id=session.get('active_project_id')) }}">Cambios</a></li>
+        <li><a href="{{ url_for('dashboards.tracking_page', project_id=session.get('active_project_id')) }}">Tableros</a></li>
+        <li><a href="{{ url_for('reports.export_pdf', project_id=session.get('active_project_id')) }}">Informe PDF</a></li>
+      </ol>
+    </aside>
+    {% endif %}
+    <div class="page-content">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
         <div role="alert" class="flash flash-{{ category }}">{{ message }}</div>
       {% endfor %}
     {% endwith %}
     {% block content %}{% endblock %}
+    </div>
   </main>
+  <script>
+    document.addEventListener('submit', (event) => {
+      const message = event.target.dataset.confirm;
+      if (message && !window.confirm(message)) event.preventDefault();
+    });
+  </script>
 </body>
 </html>

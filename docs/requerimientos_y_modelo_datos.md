@@ -188,7 +188,7 @@ erDiagram
         string specialty
         numeric hourly_rate
         numeric hours_per_week
-        numeric weeks
+        numeric weeks  # Dato histórico de capacidad; el costo usa la duración hábil de cada actividad.
         numeric quantity
         numeric unit_cost
     }

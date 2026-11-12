@@ -3,8 +3,35 @@
 {% block content %}
 <h1>{{ project.name }}</h1>
 <p>{{ project.description or "Sin descripción." }}</p>
-<p>Estado: {{ project.status }}</p>
-<p><a href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Tablero de seguimiento</a></p>
-<p><a href="{{ url_for('dashboards.changes_page', project_id=project.id) }}">Gestión del cambio</a></p>
+<p>Estado: <strong>{{ project.status|replace("_", " ") }}</strong> · Avance: {{ project.progress_percent }}%</p>
+<section aria-labelledby="guided-title">
+  <h2 id="guided-title">Ruta guiada</h2>
+  <ol class="guided-list">
+    {% for step in guided_steps %}
+    <li class="guided-{{ step.status }}">
+      <strong>{{ loop.index }}. {{ step.name }}</strong>
+      <span class="guided-status">{{ "✓ " if step.status == "completo" else "⚠ " if step.status == "pendiente" else "🔒 " }}{{ step.status|capitalize }}</span>
+      <small>{{ step.help }}</small>
+      {% if step.status == "pendiente" %}
+        {% if step.target == "edit" %}
+          <a class="button-link" href="{{ url_for('work.edit_project', project_id=project.id) }}">Siguiente paso</a>
+        {% elif step.target in ("task", "resource", "milestone") %}
+          <a class="button-link" href="{{ url_for('work.create_work_item', project_id=project.id, kind=step.target) }}">Siguiente paso</a>
+        {% elif step.target == "changes" %}
+          <a class="button-link" href="{{ url_for('management.create_change', project_id=project.id) }}">Siguiente paso</a>
+        {% elif step.target == "pdf" %}
+          <a class="button-link" href="{{ url_for('reports.export_pdf', project_id=project.id) }}">Siguiente paso</a>
+        {% else %}
+          <a class="button-link" href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Siguiente paso</a>
+        {% endif %}
+      {% elif step.status == "bloqueado" %}
+        <span class="blocked-help">Completa el paso anterior.</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+<p><a href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Abrir tablero de seguimiento</a></p>
+<p><a href="{{ url_for('dashboards.changes_page', project_id=project.id) }}">Abrir gestión del cambio</a></p>
 <p><a href="{{ url_for('reports.export_pdf', project_id=project.id) }}">Descargar informe PDF</a></p>
 {% endblock %}

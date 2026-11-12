@@ -25,7 +25,7 @@ class User(UserMixin, db.Model):
     email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(
-        Enum("admin", "usuario_proyecto", name="user_role"),
+        Enum("admin", "usuario_proyecto", "solo_lectura", name="user_role"),
         nullable=False,
         default="usuario_proyecto",
     )

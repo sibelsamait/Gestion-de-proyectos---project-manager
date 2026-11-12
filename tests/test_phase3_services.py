@@ -143,7 +143,13 @@ def test_costs_use_decimal_and_detect_overallocation(app):
             quantity=Decimal(3),
             unit_cost=Decimal(10),
         )
-        task = Task(project_id=project.id, name="Implementación")
+        task = Task(
+            project_id=project.id,
+            name="Implementación",
+            planned_start=date(2026, 1, 5),
+            planned_end=date(2026, 1, 16),
+            planned_duration_days=10,
+        )
         db.session.add_all([professional, material, task])
         db.session.flush()
         db.session.add_all(
@@ -168,3 +174,47 @@ def test_costs_use_decimal_and_detect_overallocation(app):
         assert breakdown.actual == Decimal("4030.00")
         assert project_costs(db.session, project.id)["Profesional"] == Decimal("8000.00")
         assert professional_overallocations(db.session, project.id) == {professional.id: Decimal("40.00")}
+
+
+def test_professional_cost_uses_three_working_days_as_six_tenths_week(app):
+    with app.app_context():
+        project = Project(code="THREE-DAYS", name="Tres días", status="planificado")
+        professional = Resource(
+            project_id=project.id,
+            type="Profesional",
+            name="Dev",
+            hourly_rate=Decimal(50),
+            hours_per_week=Decimal(40),
+            weeks=Decimal(99),
+        )
+        task = Task(
+            project_id=project.id,
+            name="Actividad corta",
+            planned_start=date(2026, 1, 5),
+            planned_end=date(2026, 1, 7),
+            planned_duration_days=3,
+        )
+        db.session.add(project)
+        db.session.flush()
+        professional.project_id = project.id
+        db.session.add(professional)
+        task.project_id = project.id
+        db.session.add(task)
+        db.session.flush()
+        db.session.add(
+            TaskResourceAssignment(
+                task_id=task.id,
+                resource_id=professional.id,
+                planned_units=Decimal(1),
+                actual_units=Decimal(1),
+            )
+        )
+        db.session.flush()
+
+        assert task_cost(db.session, task.id).planned == Decimal("1200.00")
+        task.actual_start = date(2026, 1, 5)
+        task.actual_end = date(2026, 1, 9)
+        task.actual_duration_days = 5
+        assert task_cost(db.session, task.id).actual == Decimal("2000.00")
+        task.actual_duration_days = 0
+        assert task_cost(db.session, task.id).actual == Decimal("1200.00")
