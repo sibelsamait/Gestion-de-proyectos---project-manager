@@ -12,3 +12,11 @@ export function formatMoney(value, currency = 'CLP') {
 export function selectedCurrency() {
   return document.querySelector('#currency-selector')?.value || 'CLP';
 }
+
+document.addEventListener('submit', (event) => {
+  const form = event.target;
+  if (form.matches('form[data-confirm]') &&
+      !window.confirm(form.dataset.confirm)) {
+    event.preventDefault();
+  }
+});

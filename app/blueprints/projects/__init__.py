@@ -7,7 +7,16 @@ from typing import Any
 from flask import Blueprint, abort, redirect, render_template, session, url_for
 from flask_login import current_user, login_required
 
-from ...models import Project, ProjectMembership
+from ...models import (
+    ChangeRequest,
+    KpiDefinition,
+    Milestone,
+    Project,
+    ProjectMembership,
+    Resource,
+    Task,
+    TaskDependency,
+)
 
 projects_bp = Blueprint("projects", __name__)
 
@@ -66,4 +75,47 @@ def dashboard() -> str:
 @project_access_required
 def detail(project: Project) -> str:
     """Selecciona el proyecto activo tras comprobar autorización."""
-    return render_template("projects/detail.html", project=project)
+    counts = {
+        "tasks": Task.query.filter_by(project_id=project.id).count(),
+        "dependencies": (
+            TaskDependency.query.join(Task, Task.id == TaskDependency.predecessor_id)
+            .filter(Task.project_id == project.id)
+            .count()
+        ),
+        "resources": Resource.query.filter_by(project_id=project.id).count(),
+        "milestones": Milestone.query.filter_by(project_id=project.id).count(),
+        "kpis": KpiDefinition.query.filter_by(project_id=project.id).count(),
+        "changes": ChangeRequest.query.filter_by(project_id=project.id).count(),
+    }
+    definitions = (
+        ("Datos del proyecto", bool(project.name and project.code), "edit", "Define o revisa los datos básicos."),
+        ("Actividades", counts["tasks"] > 0, "task", "Crea la primera actividad."),
+        ("Relaciones entre actividades", counts["dependencies"] > 0, "tracking", "Agrega una dependencia entre actividades."),
+        ("Recursos y costos", counts["resources"] > 0, "resource", "Registra al menos un recurso."),
+        ("Hitos", counts["milestones"] > 0, "milestone", "Registra un hito comprometido."),
+        ("Indicadores", counts["kpis"] > 0, "tracking", "Crea o revisa los indicadores."),
+        ("Cambios", counts["changes"] > 0, "changes", "Registra una solicitud de cambio."),
+        ("Tableros", True, "tracking", "Consulta los resultados del proyecto."),
+        ("Informe PDF", True, "pdf", "Descarga el resumen del proyecto."),
+    )
+    guided_steps = []
+    previous_complete = True
+    for name, complete, target, help_text in definitions:
+        status = "completo" if complete else ("pendiente" if previous_complete else "bloqueado")
+        if not complete:
+            previous_complete = False
+        guided_steps.append(
+            {
+                "name": name,
+                "status": status,
+                "target": target,
+                "help": help_text,
+                "complete": complete,
+            }
+        )
+    return render_template(
+        "projects/detail.html",
+        project=project,
+        guided_steps=guided_steps,
+        counts=counts,
+    )
