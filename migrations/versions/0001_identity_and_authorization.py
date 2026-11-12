@@ -11,11 +11,20 @@ depends_on = None
 
 def upgrade() -> None:
     """Crea las tablas base de Fase 1."""
-    user_role = sa.Enum("admin", "usuario_proyecto", name="user_role")
-    project_status = sa.Enum(
-        "planificado", "en_ejecucion", "suspendido", "terminado", name="project_status"
+    user_role = sa.Enum(
+        "admin", "usuario_proyecto", name="user_role", create_type=False
     )
-    membership_role = sa.Enum("member", "manager", name="membership_role")
+    project_status = sa.Enum(
+        "planificado",
+        "en_ejecucion",
+        "suspendido",
+        "terminado",
+        name="project_status",
+        create_type=False,
+    )
+    membership_role = sa.Enum(
+        "member", "manager", name="membership_role", create_type=False
+    )
     bind = op.get_bind()
     user_role.create(bind, checkfirst=True)
     project_status.create(bind, checkfirst=True)
