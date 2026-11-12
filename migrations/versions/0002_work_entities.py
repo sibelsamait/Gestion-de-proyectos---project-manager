@@ -12,9 +12,26 @@ depends_on = None
 def upgrade() -> None:
     """Agrega las tablas de trabajo de la Fase 2."""
     bind = op.get_bind()
-    dependency_type = sa.Enum("FS", "SS", "FF", "SF", name="dependency_type")
-    resource_type = sa.Enum("Profesional", "Licencia", "Material", "Equipamiento", "Otros", name="resource_type")
-    milestone_status = sa.Enum("pendiente", "en_progreso", "cumplido", "vencido", name="milestone_status")
+    dependency_type = sa.Enum(
+        "FS", "SS", "FF", "SF", name="dependency_type", create_type=False
+    )
+    resource_type = sa.Enum(
+        "Profesional",
+        "Licencia",
+        "Material",
+        "Equipamiento",
+        "Otros",
+        name="resource_type",
+        create_type=False,
+    )
+    milestone_status = sa.Enum(
+        "pendiente",
+        "en_progreso",
+        "cumplido",
+        "vencido",
+        name="milestone_status",
+        create_type=False,
+    )
     for enum in (dependency_type, resource_type, milestone_status):
         enum.create(bind, checkfirst=True)
     op.add_column("projects", sa.Column("authorized_budget", sa.Numeric(14, 2), nullable=False, server_default="0"))
