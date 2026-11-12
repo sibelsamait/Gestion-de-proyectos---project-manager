@@ -1,9 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Mis proyectos{% endblock %}
+{% block title %}Portafolio · Gestión de proyectos{% endblock %}
 {% block content %}
-<h1>Mis proyectos</h1>
+<div class="section-heading">
+  <div><p class="eyebrow">Portafolio</p><h1>Mis proyectos</h1><p>Una vista clara de los proyectos que tienes autorizados.</p></div>
+  {% if current_user.is_admin %}<a class="button-link" href="{{ url_for('work.create_project') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo proyecto</a>{% endif %}
+</div>
 {% if projects %}
-<ul>{% for project in projects %}<li><a href="{{ url_for('projects.detail', project_id=project.id) }}">{{ project.code }} — {{ project.name }}</a></li>{% endfor %}</ul>
-{% else %}<p>No tienes proyectos asignados.</p>{% endif %}
+<div class="toolbar" role="search">
+  <label for="project-search">Buscar proyecto<input id="project-search" type="search" placeholder="Código o nombre" data-filter-target=".project-card"></label>
+  <label for="project-status">Estado<select id="project-status" data-filter-target=".project-card"><option value="">Todos los estados</option><option value="planificado">Planificado</option><option value="en_ejecucion">En ejecución</option><option value="suspendido">Suspendido</option><option value="terminado">Terminado</option></select></label>
+</div>
+<div class="grid grid-3" id="project-list">
+  {% for project in projects %}
+  <article class="card project-card" data-filter-text="{{ project.code }} {{ project.name }}" data-filter-status="{{ project.status }}">
+    <div class="section-heading"><span class="tag tag-neutral">{{ project.code }}</span><span class="status-badge {% if project.status == 'terminado' %}status-success{% elif project.status == 'suspendido' %}status-danger{% else %}status-warning{% endif %}"><i class="bi {% if project.status == 'terminado' %}bi-check-circle{% elif project.status == 'suspendido' %}bi-pause-circle{% else %}bi-clock{% endif %}" aria-hidden="true"></i> {{ project.status|replace("_", " ")|capitalize }}</span></div>
+    <h2>{{ project.name }}</h2>
+    <p class="form-hint">{{ project.description or "Sin descripción disponible." }}</p>
+    <div class="stat-card" style="box-shadow:none;padding:.75rem 0;border:0"><span class="stat-label">Avance general</span><strong class="stat-value">{{ project.progress_percent or 0 }}%</strong><div class="progress-track" aria-label="Avance {{ project.progress_percent or 0 }}%"><div class="progress-value" style="width:{{ project.progress_percent or 0 }}%"></div></div></div>
+    <p class="form-hint"><i class="bi bi-calendar3" aria-hidden="true"></i> {{ project.planned_start or "Sin fecha" }} — {{ project.planned_end or "Sin fecha" }}</p>
+    <a class="button-link" href="{{ url_for('projects.detail', project_id=project.id) }}">Abrir proyecto <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state"><i class="bi bi-folder2-open" aria-hidden="true"></i><h2>Aún no tienes proyectos asignados.</h2><p>Cuando alguien te incorpore a un proyecto, aparecerá aquí.</p></div>
+{% endif %}
 {% endblock %}
-

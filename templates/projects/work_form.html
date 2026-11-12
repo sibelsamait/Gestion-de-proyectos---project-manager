@@ -1,43 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Nuevo elemento{% endblock %}
+{% block title %}{{ "Editar" if item.id else "Nuevo" }} {{ {"task": "actividad", "resource": "recurso", "milestone": "hito"}[kind] }}{% endblock %}
 {% block content %}
-<h1>Nuevo {{ {"task": "tarea", "resource": "recurso", "milestone": "hito"}[kind] }}</h1>
-<form method="post">
+<div class="section-heading"><div><p class="eyebrow">{{ project.code }} · {{ {"task": "Actividades", "resource": "Recursos y costos", "milestone": "Hitos"}[kind] }}</p><h1>{{ "Editar" if item.id else "Nueva" }} {{ {"task": "actividad", "resource": "recurso", "milestone": "hito"}[kind] }}</h1></div></div>
+<form method="post" class="panel">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <label for="name">Nombre
-    <span class="field-help">Usa un nombre corto y fácil de reconocer.</span>
-    <input id="name" name="name" required maxlength="160" value="{{ item.name or '' }}">
-  </label>
+  <div class="grid grid-2">
+    <label for="name">Nombre<span class="field-help">Usa un nombre corto y fácil de reconocer.</span><input id="name" name="name" required maxlength="160" value="{{ item.name or '' }}"></label>
+    {% if kind == "task" %}<label for="etapa">Etapa<span class="field-help">Texto para agrupar; no crea jerarquías.</span><input id="etapa" name="etapa" maxlength="120" value="{{ item.etapa or '' }}"></label>{% endif %}
+  </div>
   {% if kind == "task" %}
-  <label>Descripción <textarea name="description">{{ item.description or '' }}</textarea></label>
-  <label for="etapa">Etapa
-    <span class="field-help">Texto para agrupar; no crea jerarquías.</span>
-    <input id="etapa" name="etapa" maxlength="120" value="{{ item.etapa or '' }}">
-  </label>
-  <label>Inicio <input name="planned_start" type="date" value="{{ item.planned_start or '' }}"></label>
-  <label>Término <input name="planned_end" type="date" value="{{ item.planned_end or '' }}"></label>
-  <label>Duración hábil <input name="planned_duration_days" type="number" min="0" value="{{ item.planned_duration_days }}"></label>
-  <label>Avance <input name="progress_percent" type="number" min="0" max="100" step="0.01" value="{{ item.progress_percent }}"></label>
+  <label for="description">Descripción<textarea id="description" name="description">{{ item.description or '' }}</textarea></label>
+  <fieldset><legend>Fechas y avance</legend><div class="grid grid-3"><label for="planned_start">Inicio planificado<input id="planned_start" name="planned_start" type="date" value="{{ item.planned_start or '' }}"></label><label for="planned_end">Término planificado<input id="planned_end" name="planned_end" type="date" value="{{ item.planned_end or '' }}"></label><label for="planned_duration_days">Duración hábil<span class="field-help">Días hábiles.</span><input id="planned_duration_days" name="planned_duration_days" type="number" min="0" value="{{ item.planned_duration_days }}"></label></div><label for="progress_percent">Avance (%)<input id="progress_percent" name="progress_percent" type="number" min="0" max="100" step="0.01" value="{{ item.progress_percent }}"></label></fieldset>
+  <div class="card"><strong><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Recálculo automático</strong><p class="form-hint">El sistema recalcula las actividades dependientes, costos, avance, sobreasignaciones, KPI y tableros. Si creas un ciclo, no se guardará el cambio.</p></div>
   {% elif kind == "resource" %}
-  <label>Tipo <select name="type">{% for value in ("Profesional", "Licencia", "Material", "Equipamiento", "Otros") %}<option>{{ value }}</option>{% endfor %}</select></label>
-  <label>Especialidad <input name="specialty" value="{{ item.specialty or '' }}"></label>
-  <label for="hourly_rate">Valor hora
-    <span class="field-help">Monto base en CLP por hora.</span>
-    <input id="hourly_rate" name="hourly_rate" type="number" min="0" step="0.01" value="{{ item.hourly_rate }}">
-  </label>
-  <label>Horas semanales <input name="hours_per_week" type="number" min="0" step="0.01" value="{{ item.hours_per_week }}"></label>
-  <p class="field-help">Las semanas del profesional se calculan automáticamente según los días hábiles de cada actividad.</p>
-  <label>Cantidad <input name="quantity" type="number" min="0" step="0.01" value="{{ item.quantity }}"></label>
-  <label for="unit_cost">Valor unitario
-    <span class="field-help">Costo base en CLP por unidad.</span>
-    <input id="unit_cost" name="unit_cost" type="number" min="0" step="0.01" value="{{ item.unit_cost }}">
-  </label>
+  <fieldset><legend>Tipo y tarifa</legend><div class="grid grid-2"><label for="type">Tipo<select id="type" name="type">{% for value in ("Profesional", "Licencia", "Material", "Equipamiento", "Otros") %}<option {% if item.type == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label><label for="specialty">Especialidad<input id="specialty" name="specialty" value="{{ item.specialty or '' }}"></label><label for="hourly_rate">Valor hora<span class="field-help">Monto base en CLP por hora.</span><input id="hourly_rate" name="hourly_rate" type="number" min="0" step="0.01" value="{{ item.hourly_rate }}"></label><label for="hours_per_week">Horas semanales<input id="hours_per_week" name="hours_per_week" type="number" min="0" step="0.01" value="{{ item.hours_per_week }}"></label><label for="quantity">Cantidad<input id="quantity" name="quantity" type="number" min="0" step="0.01" value="{{ item.quantity }}"></label><label for="unit_cost">Valor unitario<span class="field-help">Costo base en CLP por unidad.</span><input id="unit_cost" name="unit_cost" type="number" min="0" step="0.01" value="{{ item.unit_cost }}"></label></div></fieldset>
+  <div class="card"><strong><i class="bi bi-calculator" aria-hidden="true"></i> Cálculo profesional</strong><p class="form-hint">Las semanas del profesional se calculan automáticamente usando los días hábiles de cada actividad. El frontend no recalcula costos financieros.</p></div>
   {% else %}
-  <label>Descripción <textarea name="description">{{ item.description or '' }}</textarea></label>
-  <label>Fecha comprometida <input name="committed_date" type="date" value="{{ item.committed_date or '' }}"></label>
-  <label>Criterios de aceptación <textarea name="acceptance_criteria">{{ item.acceptance_criteria or '' }}</textarea></label>
-  <label>Evidencia (texto o URL) <textarea name="evidence">{{ item.evidence or '' }}</textarea></label>
+  <label for="description">Descripción<textarea id="description" name="description">{{ item.description or '' }}</textarea></label>
+  <div class="grid grid-2"><label for="committed_date">Fecha comprometida<input id="committed_date" name="committed_date" type="date" value="{{ item.committed_date or '' }}"></label><label for="evidence">Evidencia (texto o URL)<textarea id="evidence" name="evidence">{{ item.evidence or '' }}</textarea></label></div>
+  <label for="acceptance_criteria">Criterios de aceptación<textarea id="acceptance_criteria" name="acceptance_criteria">{{ item.acceptance_criteria or '' }}</textarea></label>
   {% endif %}
-  <button type="submit">Guardar</button>
+  <div class="actions"><button type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Guardar</button><a class="button-link button-secondary" href="{{ url_for('projects.detail', project_id=project.id) }}">Cancelar</a></div>
 </form>
 {% endblock %}

@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Gestión del cambio — {{ project.name }}{% endblock %}
 {% block content %}
-<h1>Tablero de gestión del cambio</h1>
-<p>Proyecto: {{ project.name }}</p>
-<p><a class="button-link" href="{{ url_for('management.create_change', project_id=project.id) }}">Registrar solicitud de cambio</a></p>
-<table id="change-list-table">
+<div class="section-heading"><div><p class="eyebrow">Tablero 2 · Transformación</p><h1>Gestión del cambio</h1><p>{{ project.code }} · {{ project.name }}. Sigue decisiones, riesgos, adopción y efectividad sin mezclarlos con la ejecución diaria.</p></div><a class="button-link" href="{{ url_for('management.create_change', project_id=project.id) }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Registrar solicitud</a></div>
+<div class="toolbar" role="search">
+  <label for="change-search">Buscar solicitud<input id="change-search" type="search" placeholder="Identificador o descripción"></label>
+  <label for="change-status-filter">Estado<select id="change-status-filter"><option>Todos</option></select></label>
+</div>
+<div class="table-wrap"><table id="change-list-table">
   <caption>Solicitudes registradas</caption>
   <thead><tr><th>Identificador</th><th>Estado</th><th>Etapa</th><th>Prioridad</th><th>Acción</th></tr></thead>
   <tbody></tbody>
-</table>
-<section aria-labelledby="change-summary-title">
+</table></div>
+<section class="panel" aria-labelledby="change-summary-title">
   <h2 id="change-summary-title">Resumen</h2>
   <div id="change-summary" aria-live="polite" data-project-id="{{ project.id }}">Cargando datos…</div>
 </section>
-<section aria-labelledby="change-status-title">
+<section class="panel" aria-labelledby="change-status-title">
   <h2 id="change-status-title">Distribución por estado</h2>
   <table id="change-status-table">
     <caption>Solicitudes por estado</caption>
     <thead><tr><th>Estado</th><th>Cantidad</th></tr></thead><tbody></tbody>
   </table>
 </section>
-<section aria-labelledby="change-stage-title">
+<section class="panel" aria-labelledby="change-stage-title">
   <h2 id="change-stage-title">Avance por etapa</h2>
   <table id="change-stage-table"><caption>Tabla alternativa de etapas</caption><thead><tr><th>Etapa</th><th>Cantidad</th></tr></thead><tbody></tbody></table>
 </section>
-<section aria-labelledby="change-metrics-title">
+<section class="panel" aria-labelledby="change-metrics-title">
   <h2 id="change-metrics-title">Implementación y resultados</h2>
   <table id="change-metrics-table"><caption>Tabla alternativa de tiempos, acciones, efectividad y adopción</caption><thead><tr><th>Indicador</th><th>Resultado</th></tr></thead><tbody></tbody></table>
 </section>
-<section aria-labelledby="change-alerts-title">
+<section class="panel" aria-labelledby="change-alerts-title">
   <h2 id="change-alerts-title">Alertas</h2>
   <table id="change-alerts-table"><caption>Tabla alternativa de alertas</caption><thead><tr><th>Tipo</th><th>Cambios o KPI</th></tr></thead><tbody></tbody></table>
 </section>
-<p>Este tablero prioriza estado, etapa, tiempo, riesgo, costo, efectividad y adopción
-porque permite decidir si un cambio está listo, atrasado o necesita una acción correctiva.</p>
 <script type="module" src="{{ url_for('static', filename='js/dashboard2.js') }}"></script>
 {% endblock %}
