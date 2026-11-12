@@ -62,6 +62,27 @@ class KpiMeasurement(db.Model):
     inputs: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
 
+class KpiAlert(db.Model):
+    """Alerta generada cuando un KPI cambia a estado preventivo o crítico."""
+
+    __tablename__ = "kpi_alerts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    kpi_id: Mapped[str] = mapped_column(
+        ForeignKey("kpi_definitions.id", ondelete="CASCADE"), nullable=False
+    )
+    measurement_id: Mapped[str] = mapped_column(
+        ForeignKey("kpi_measurements.id", ondelete="CASCADE"), nullable=False
+    )
+    previous_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    current_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    message: Mapped[str] = mapped_column(String(300), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 milestone_kpis = db.Table(
     "milestone_kpis",
     db.Column(

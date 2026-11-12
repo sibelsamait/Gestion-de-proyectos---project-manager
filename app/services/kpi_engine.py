@@ -10,7 +10,7 @@ from simpleeval import (
 )
 from sqlalchemy.orm import Session
 
-from ..models import KpiDefinition, KpiMeasurement
+from ..models import KpiAlert, KpiDefinition, KpiMeasurement
 
 ALLOWED_VARIABLES = frozenset(
     {
@@ -26,6 +26,15 @@ ALLOWED_VARIABLES = frozenset(
         "horas_disponibles",
         "cambios_aprobados",
         "cambios_totales",
+        "valor_planificado",
+        "valor_ganado",
+        "variacion_costo",
+        "variacion_plazo",
+        "costo_estimado_terminar",
+        "spi",
+        "cpi",
+        "hitos_evaluados",
+        "tareas_cumplidas",
     }
 )
 ALLOWED_FUNCTIONS = {"abs": abs, "min": min, "max": max, "round": round}
@@ -78,6 +87,7 @@ def evaluate_kpi(session: Session, kpi: KpiDefinition, values: dict[str, Decimal
     ) as exc:
         raise KpiError("No fue posible evaluar la fórmula del KPI.") from exc
     status = classify_result(result, kpi)
+    previous_status = kpi.status
     kpi.result = result
     kpi.status = status
     measurement = KpiMeasurement(
@@ -87,6 +97,17 @@ def evaluate_kpi(session: Session, kpi: KpiDefinition, values: dict[str, Decimal
         inputs=_json_values(values),
     )
     session.add(measurement)
+    if status in {"yellow", "red"} and previous_status != status:
+        session.flush()
+        session.add(
+            KpiAlert(
+                kpi_id=kpi.id,
+                measurement_id=measurement.id,
+                previous_status=previous_status,
+                current_status=status,
+                message=f"El KPI {kpi.name} cambió de {previous_status} a {status}.",
+            )
+        )
     return measurement
 
 

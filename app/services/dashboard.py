@@ -16,8 +16,9 @@ from ..models import (
     TaskDependency,
     TaskResourceAssignment,
 )
-from .costs import professional_overallocations, project_costs
+from .costs import professional_overallocations, project_costs, task_cost
 from .currency import convert_with_context, currency_context
+from .project_state import _earned_values
 
 
 def _iso(value: date | None) -> str | None:
@@ -85,6 +86,18 @@ def tracking_dashboard(session: Session, project: Project, currency: str = "CLP"
     overdue = [task for task in evaluated if task.planned_end < date.today() and task.progress_percent < 100]
     costs = project_costs(session, project.id)
     money = currency_context(currency, session=session)
+    planned_cost = sum(costs.values(), Decimal(0))
+    actual_cost = sum(
+        (task_cost(session, task.id).actual for task in tasks),
+        Decimal(0),
+    )
+    earned = _earned_values(session, tasks, planned_cost, actual_cost)
+    kpis = session.scalars(
+        select(KpiDefinition).where(
+            KpiDefinition.project_id == project.id,
+            KpiDefinition.scope == "project",
+        )
+    ).all()
     professional_ids = {
         resource.id
         for resource in session.scalars(select(Resource).where(Resource.project_id == project.id))
@@ -122,6 +135,16 @@ def tracking_dashboard(session: Session, project: Project, currency: str = "CLP"
             "percent": float(assigned_hours / available_hours * 100) if available_hours else 0,
             "overallocated": bool(professional_overallocations(session, project.id)),
         },
+        "earned_value": {key: str(value) for key, value in earned.items()},
+        "kpis": [
+            {
+                "code": kpi.code,
+                "name": kpi.name,
+                "result": str(kpi.result) if kpi.result is not None else None,
+                "status": kpi.status,
+            }
+            for kpi in kpis
+        ],
         "overdue_tasks": [{"id": task.id, "name": task.name} for task in overdue],
         **money,
     }
