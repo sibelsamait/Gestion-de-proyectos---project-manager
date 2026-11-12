@@ -2,6 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -17,6 +18,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
+
+if TYPE_CHECKING:
+    from .management import KpiDefinition
 
 
 class Task(db.Model):
@@ -49,6 +53,9 @@ class Task(db.Model):
     )
     dependencies_in: Mapped[list["TaskDependency"]] = relationship(
         foreign_keys="TaskDependency.successor_id", back_populates="successor", cascade="all, delete-orphan"
+    )
+    milestones: Mapped[list["Milestone"]] = relationship(
+        secondary="milestone_tasks", back_populates="tasks"
     )
 
 
@@ -96,8 +103,12 @@ class Resource(db.Model):
     )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     specialty: Mapped[str | None] = mapped_column(String(120))
+    category: Mapped[str | None] = mapped_column(String(120))
+    unit: Mapped[str | None] = mapped_column(String(80))
+    period: Mapped[str | None] = mapped_column(String(80))
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     hours_per_week: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    daily_max_hours: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False, default=8)
     weeks: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False, default=0)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
@@ -132,3 +143,16 @@ class Milestone(db.Model):
     )
     acceptance_criteria: Mapped[str | None] = mapped_column(Text)
     evidence: Mapped[str | None] = mapped_column(Text)
+    tasks: Mapped[list[Task]] = relationship(
+        secondary="milestone_tasks", back_populates="milestones"
+    )
+    kpis: Mapped[list["KpiDefinition"]] = relationship(
+        secondary="milestone_kpis", back_populates="milestones"
+    )
+
+
+milestone_tasks = db.Table(
+    "milestone_tasks",
+    db.Column("milestone_id", db.String(36), db.ForeignKey("milestones.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("task_id", db.String(36), db.ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
+)

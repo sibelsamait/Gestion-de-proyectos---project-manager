@@ -2,12 +2,16 @@
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import JSON, Date, DateTime, Enum, ForeignKey, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
+
+if TYPE_CHECKING:
+    from .work import Milestone
 
 
 class KpiDefinition(db.Model):
@@ -38,6 +42,9 @@ class KpiDefinition(db.Model):
     responsible_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     result: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
+    milestones: Mapped[list["Milestone"]] = relationship(
+        secondary="milestone_kpis", back_populates="kpis"
+    )
 
 
 class KpiMeasurement(db.Model):
@@ -53,6 +60,17 @@ class KpiMeasurement(db.Model):
     result: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     inputs: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+milestone_kpis = db.Table(
+    "milestone_kpis",
+    db.Column(
+        "milestone_id", db.String(36), db.ForeignKey("milestones.id", ondelete="CASCADE"), primary_key=True
+    ),
+    db.Column(
+        "kpi_id", db.String(36), db.ForeignKey("kpi_definitions.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
 
 
 class ChangeRequest(db.Model):
