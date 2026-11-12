@@ -1,24 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ "Editar" if project else "Nuevo" }} proyecto{% endblock %}
 {% block content %}
-<h1>{{ "Editar" if project else "Nuevo" }} proyecto</h1>
-<form method="post">
+<div class="section-heading"><div><p class="eyebrow">Datos del proyecto</p><h1>{{ "Editar" if project else "Nuevo" }} proyecto</h1><p>La información básica ayuda a que todo el equipo entienda el propósito y el alcance.</p></div></div>
+<form method="post" class="panel">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {% if not project %}<label>Código <input name="code" required maxlength="40"></label>{% endif %}
-  <label>Nombre <input name="name" required maxlength="160" value="{{ project.name if project else '' }}"></label>
-  <label>Descripción <textarea name="description">{{ project.description if project else '' }}</textarea></label>
-  <label>Objetivos <textarea name="objectives">{{ project.objectives if project else '' }}</textarea></label>
-  <label>Patrocinador <input name="sponsor" maxlength="160" value="{{ project.sponsor if project else '' }}"></label>
-  <label>Presupuesto <input name="authorized_budget" type="number" min="0" step="0.01" value="{{ project.authorized_budget if project else '0' }}"></label>
-  <label>Inicio planificado <input name="planned_start" type="date" value="{{ project.planned_start if project and project.planned_start else '' }}"></label>
-  <label>Término planificado <input name="planned_end" type="date" value="{{ project.planned_end if project and project.planned_end else '' }}"></label>
-  {% if project %}
-  <label>Estado <select name="status">
-    {% for status in ("planificado", "en_ejecucion", "suspendido", "terminado") %}
-    <option value="{{ status }}" {% if project.status == status %}selected{% endif %}>{{ status }}</option>
-    {% endfor %}
-  </select></label>
-  {% endif %}
-  <button type="submit">Guardar</button>
+  <div class="grid grid-2">
+    {% if not project %}<label for="code">Código<span class="field-help">Un identificador corto y único.</span><input id="code" name="code" required maxlength="40"></label>{% else %}<div><p class="eyebrow">Código</p><strong>{{ project.code }}</strong></div>{% endif %}
+    <label for="name">Nombre<input id="name" name="name" required maxlength="160" value="{{ project.name if project else '' }}"></label>
+  </div>
+  <div class="grid grid-2">
+    <label for="description">Descripción<textarea id="description" name="description">{{ project.description if project else '' }}</textarea></label>
+    <label for="objectives">Objetivos<textarea id="objectives" name="objectives">{{ project.objectives if project else '' }}</textarea></label>
+  </div>
+  <div class="grid grid-2">
+    <label for="sponsor">Patrocinador<input id="sponsor" name="sponsor" maxlength="160" value="{{ project.sponsor if project else '' }}"></label>
+    <label for="authorized_budget">Presupuesto autorizado<span class="field-help">El backend conserva la moneda base y convierte para mostrar.</span><input id="authorized_budget" name="authorized_budget" type="number" min="0" step="0.01" value="{{ project.authorized_budget if project else '0' }}"></label>
+  </div>
+  <fieldset><legend>Planificación</legend><div class="grid grid-2"><label for="planned_start">Inicio planificado<input id="planned_start" name="planned_start" type="date" value="{{ project.planned_start if project and project.planned_start else '' }}"></label><label for="planned_end">Término planificado<input id="planned_end" name="planned_end" type="date" value="{{ project.planned_end if project and project.planned_end else '' }}"></label></div></fieldset>
+  {% if project %}<label for="status">Estado<select id="status" name="status">{% for status in ("planificado", "en_ejecucion", "suspendido", "terminado") %}<option value="{{ status }}" {% if project.status == status %}selected{% endif %}>{{ status|replace("_", " ")|capitalize }}</option>{% endfor %}</select></label>{% endif %}
+  <div class="actions"><button type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Guardar proyecto</button><a class="button-link button-secondary" href="{{ url_for('projects.detail', project_id=project.id) if project else url_for('projects.dashboard') }}">Cancelar</a></div>
 </form>
 {% endblock %}

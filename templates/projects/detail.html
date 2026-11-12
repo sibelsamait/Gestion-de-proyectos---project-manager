@@ -1,37 +1,37 @@
 {% extends "base.html" %}
-{% block title %}{{ project.name }}{% endblock %}
+{% block title %}{{ project.name }} · Gestión de proyectos{% endblock %}
 {% block content %}
-<h1>{{ project.name }}</h1>
-<p>{{ project.description or "Sin descripción." }}</p>
-<p>Estado: <strong>{{ project.status|replace("_", " ") }}</strong> · Avance: {{ project.progress_percent }}%</p>
+<div class="section-heading">
+  <div><p class="eyebrow">{{ project.code }}</p><h1>{{ project.name }}</h1><p>{{ project.description or "Sin descripción." }}</p></div>
+  <span class="status-badge {% if project.status == 'terminado' %}status-success{% elif project.status == 'suspendido' %}status-danger{% else %}status-warning{% endif %}"><i class="bi bi-circle-fill" aria-hidden="true"></i> {{ project.status|replace("_", " ")|capitalize }}</span>
+</div>
+<div class="stat-grid" aria-label="Resumen del proyecto">
+  <div class="stat-card"><span class="stat-label">Avance general</span><strong class="stat-value">{{ project.progress_percent or 0 }}%</strong><div class="progress-track"><div class="progress-value" style="width:{{ project.progress_percent or 0 }}%"></div></div></div>
+  <div class="stat-card"><span class="stat-label">Presupuesto autorizado</span><strong class="stat-value">{{ project.authorized_budget or 0 }}</strong><span class="stat-meta">Moneda: {{ selected_currency }}</span></div>
+  <div class="stat-card"><span class="stat-label">Próxima fecha</span><strong class="stat-value">{{ project.planned_end or "Sin fecha" }}</strong><span class="stat-meta">Término planificado</span></div>
+  <div class="stat-card"><span class="stat-label">Tu acceso</span><strong class="stat-value">{{ current_user.role|replace("_", " ")|capitalize }}</strong><span class="stat-meta">Permisos validados por el servidor</span></div>
+</div>
 <section aria-labelledby="guided-title">
-  <h2 id="guided-title">Ruta guiada</h2>
+  <div class="section-heading"><div><p class="eyebrow">Siguiente paso</p><h2 id="guided-title">Ruta guiada del proyecto</h2></div><a class="button-link button-secondary" href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Ver seguimiento <i class="bi bi-bar-chart-line" aria-hidden="true"></i></a></div>
+  <p class="form-hint">Completa cada paso en orden. El sistema recalcula fechas, costos, avance, sobreasignaciones, KPI y tableros después de cada modificación.</p>
   <ol class="guided-list">
     {% for step in guided_steps %}
     <li class="guided-{{ step.status }}">
-      <strong>{{ loop.index }}. {{ step.name }}</strong>
-      <span class="guided-status">{{ "✓ " if step.status == "completo" else "⚠ " if step.status == "pendiente" else "🔒 " }}{{ step.status|capitalize }}</span>
+      <span class="step-number">{{ loop.index }}</span>
+      <strong>{{ step.name }}</strong>
+      <span class="guided-status">{% if step.status == "completo" %}<i class="bi bi-check-circle" aria-hidden="true"></i> Completado{% elif step.status == "pendiente" %}<i class="bi bi-exclamation-circle" aria-hidden="true"></i> Pendiente{% else %}<i class="bi bi-lock" aria-hidden="true"></i> Bloqueado{% endif %}</span>
       <small>{{ step.help }}</small>
       {% if step.status == "pendiente" %}
-        {% if step.target == "edit" %}
-          <a class="button-link" href="{{ url_for('work.edit_project', project_id=project.id) }}">Siguiente paso</a>
-        {% elif step.target in ("task", "resource", "milestone") %}
-          <a class="button-link" href="{{ url_for('work.create_work_item', project_id=project.id, kind=step.target) }}">Siguiente paso</a>
-        {% elif step.target == "changes" %}
-          <a class="button-link" href="{{ url_for('management.create_change', project_id=project.id) }}">Siguiente paso</a>
-        {% elif step.target == "pdf" %}
-          <a class="button-link" href="{{ url_for('reports.export_pdf', project_id=project.id) }}">Siguiente paso</a>
-        {% else %}
-          <a class="button-link" href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Siguiente paso</a>
-        {% endif %}
+        {% if step.target == "edit" %}<a class="button-link" href="{{ url_for('work.edit_project', project_id=project.id) }}">Siguiente paso <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        {% elif step.target in ("task", "resource", "milestone") %}<a class="button-link" href="{{ url_for('work.create_work_item', project_id=project.id, kind=step.target) }}">Siguiente paso <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        {% elif step.target == "changes" %}<a class="button-link" href="{{ url_for('management.create_change', project_id=project.id) }}">Siguiente paso <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        {% elif step.target == "pdf" %}<a class="button-link" href="{{ url_for('reports.export_pdf', project_id=project.id) }}">Siguiente paso <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        {% else %}<a class="button-link" href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Siguiente paso <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endif %}
       {% elif step.status == "bloqueado" %}
-        <span class="blocked-help">Completa el paso anterior.</span>
+        <span class="form-hint"><i class="bi bi-lock" aria-hidden="true"></i> Completa el paso anterior.</span>
       {% endif %}
     </li>
     {% endfor %}
   </ol>
 </section>
-<p><a href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Abrir tablero de seguimiento</a></p>
-<p><a href="{{ url_for('dashboards.changes_page', project_id=project.id) }}">Abrir gestión del cambio</a></p>
-<p><a href="{{ url_for('reports.export_pdf', project_id=project.id) }}">Descargar informe PDF</a></p>
 {% endblock %}

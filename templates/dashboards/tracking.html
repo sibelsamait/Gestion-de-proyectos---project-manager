@@ -1,9 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Seguimiento — {{ project.name }}{% endblock %}
 {% block content %}
-<h1>Tablero de seguimiento</h1>
-<p>Proyecto: {{ project.name }}</p>
-<form id="tracking-filters">
+<div class="section-heading"><div><p class="eyebrow">Tablero 1 · Ejecución</p><h1>Seguimiento del proyecto</h1><p>{{ project.code }} · {{ project.name }}. Entiende avance, tiempo, costos y capacidad en una sola vista.</p></div><a class="button-link button-secondary" href="{{ url_for('reports.export_pdf', project_id=project.id) }}"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Descargar informe</a></div>
+<form id="tracking-filters" class="toolbar">
   <fieldset>
     <legend>Filtros del tablero</legend>
     <label for="filter-stage">Etapa
@@ -23,25 +22,24 @@
     <button type="submit">Aplicar filtros</button>
   </fieldset>
 </form>
-<p>Elegimos avance, hitos, costos, utilización y SPI/CPI porque muestran tiempo,
-dinero y capacidad en una sola vista.</p>
+<div class="readonly-banner"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Los montos se muestran en <strong>{{ selected_currency }}</strong>. El backend realiza las conversiones; esta pantalla solo presenta los resultados.</span></div>
 <section aria-labelledby="tracking-kpis">
   <h2 id="tracking-kpis">Indicadores</h2>
   <div id="tracking-summary" aria-live="polite">Cargando datos…</div>
 </section>
-<section aria-labelledby="tracking-cost-title">
+<section class="panel" aria-labelledby="tracking-cost-title">
   <h2 id="tracking-cost-title">Costos por categoría</h2>
   <table id="tracking-cost-table"><caption>Tabla alternativa de costos</caption><thead><tr><th>Categoría</th><th>Monto</th></tr></thead><tbody></tbody></table>
 </section>
-<section aria-labelledby="tracking-kpi-title">
+<section class="panel" aria-labelledby="tracking-kpi-title">
   <h2 id="tracking-kpi-title">KPI de proyecto</h2>
   <table id="tracking-kpi-table"><caption>Tabla alternativa de indicadores</caption><thead><tr><th>KPI</th><th>Resultado</th><th>Estado</th></tr></thead><tbody></tbody></table>
 </section>
-<section aria-labelledby="tracking-task-title">
+<section class="panel" aria-labelledby="tracking-task-title">
   <h2 id="tracking-task-title">Actividades filtradas</h2>
   <table id="tracking-task-table"><caption>Tabla alternativa de actividades</caption><thead><tr><th>Actividad</th><th>Etapa</th><th>Inicio</th><th>Término</th><th>Avance</th></tr></thead><tbody></tbody></table>
 </section>
-<section aria-labelledby="gantt-title">
+<section class="panel" aria-labelledby="gantt-title">
   <h2 id="gantt-title">Gantt</h2>
   <label for="gantt-scale">Escala</label>
   <select id="gantt-scale" data-project-id="{{ project.id }}">
