@@ -30,8 +30,10 @@ en Vercel porque el disco serverless es efímero.
 - `DATABASE_URL`: PostgreSQL Neon; se normaliza `postgres://` y se añade
   `sslmode=require`.
 - `FLASK_ENV=production`: activa HTTPS, cookies Secure y `NullPool`.
-- `RATELIMIT_STORAGE_URI`: localmente `memory://`; en producción real usar
-  Redis/Upstash para un límite compartido entre instancias.
+- `RATELIMIT_STORAGE_URI`: localmente `memory://`; en Vercel usa la cadena
+  Redis TLS (`rediss://...`) de Upstash para un límite compartido entre
+  instancias. La URL REST y el token de `upstash-redis` no sirven directamente
+  como `RATELIMIT_STORAGE_URI`; copia la conexión Redis desde Upstash.
 - `RATES_API_URL`: URL HTTPS fija del proveedor, por defecto
   `https://mindicador.cl/api`.
 - `CRON_SECRET`: secreto usado por Vercel Cron para `/internal/refresh-rates`.

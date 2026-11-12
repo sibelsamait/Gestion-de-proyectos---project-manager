@@ -17,7 +17,7 @@ jobs:
       - name: Ruff
         run: ruff check app tests migrations scripts
       - name: Tests
-        run: pytest -q
+        run: python -m pytest -q
       - name: Bandit
         run: bandit -r app api scripts -ll
       - name: Auditoría de dependencias
