@@ -10,6 +10,7 @@ autenticación. Las respuestas de error usan `{ "error": "mensaje" }`.
 | GET | `/api/projects/<id>/changes-dashboard` | `id` de proyecto | estados, riesgos, costos y alertas |
 | POST | `/api/projects/<id>/kpis/<kpi_id>/measure` | JSON con variables permitidas | resultado, estado e id de medición |
 | POST | `/api/projects/<id>/changes/<change_id>/approve` | sin cuerpo | estado y número de aplicaciones |
+| POST | `/api/projects/<id>/changes/<change_id>/stage` | JSON `{"comment":"..."}` | siguiente etapa e id del historial |
 | GET | `/privacy/export` | sesión actual | JSON de datos propios |
 | POST | `/settings/currency` | formulario/JSON `currency=CLP|UF|USD` | preferencia de moneda |
 | GET | `/internal/refresh-rates` | `Authorization: CRON_SECRET` | conteo de tasas actualizadas |
@@ -36,3 +37,8 @@ GET /api/projects/abc/tracking?currency=USD
 
 La API nunca devuelve tareas de otro proyecto: el decorador de acceso verifica
 el proyecto solicitado y la membresía del usuario.
+
+El endpoint de etapas avanza exactamente una posición de las diez disponibles:
+Registro, Clasificación, Evaluación de impacto, Análisis de riesgo, Decisión,
+Planificación de la implementación, Implementación, Verificación, Cierre con
+resultado y Seguimiento de adopción.

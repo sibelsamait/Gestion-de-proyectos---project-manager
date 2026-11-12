@@ -142,6 +142,14 @@ def seed_demo() -> tuple[str, str]:
                 evidence="https://example.invalid/evidencia-demo",
             )
         )
+    db.session.flush()
+    milestones = list(
+        db.session.scalars(
+            select(Milestone).where(Milestone.project_id == project.id)
+        )
+    )
+    for index, milestone in enumerate(milestones):
+        milestone.tasks.append(tasks[index * 5])
     for index in range(8):
         db.session.add(
             KpiDefinition(
@@ -159,6 +167,17 @@ def seed_demo() -> tuple[str, str]:
                 periodicity="manual",
             )
         )
+    db.session.flush()
+    project_kpis = list(
+            db.session.scalars(
+                select(KpiDefinition).where(
+                    KpiDefinition.project_id == project.id,
+                    KpiDefinition.scope.in_(("project", "milestone")),
+                )
+            )
+    )
+    for index, milestone in enumerate(milestones):
+        milestone.kpis.append(project_kpis[index % len(project_kpis)])
     change_types = ("alcance", "tiempo", "costo", "recurso", "tecnologia")
     for index in range(5):
         db.session.add(
