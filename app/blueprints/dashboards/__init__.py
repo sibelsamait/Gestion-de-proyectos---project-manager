@@ -40,7 +40,17 @@ def changes_dashboard(project):
         currency = validate_currency(request.args.get("currency"))
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
-    return jsonify(change_dashboard(db.session, project.id, currency))
+    return jsonify(
+        change_dashboard(
+            db.session,
+            project.id,
+            currency,
+            status=request.args.get("status"),
+            priority=request.args.get("priority"),
+            change_type=request.args.get("type"),
+            responsible_id=request.args.get("responsible_id"),
+        )
+    )
 
 
 @dashboards_bp.get("/projects/<string:project_id>/tracking")

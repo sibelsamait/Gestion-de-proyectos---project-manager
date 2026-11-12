@@ -154,3 +154,21 @@ class ChangeApplication(db.Model):
     applied_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class ChangeStageHistory(db.Model):
+    """Historial inmutable de cada transición del flujo de cambios."""
+
+    __tablename__ = "change_stage_history"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    change_request_id: Mapped[str] = mapped_column(
+        ForeignKey("change_requests.id", ondelete="CASCADE"), nullable=False
+    )
+    from_stage: Mapped[str | None] = mapped_column(String(50))
+    to_stage: Mapped[str] = mapped_column(String(50), nullable=False)
+    actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    comment: Mapped[str] = mapped_column(Text, nullable=False)
+    transitioned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )

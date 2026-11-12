@@ -150,11 +150,26 @@ def tracking_dashboard(session: Session, project: Project, currency: str = "CLP"
     }
 
 
-def change_dashboard(session: Session, project_id: str, currency: str = "CLP") -> dict:
+def change_dashboard(
+    session: Session,
+    project_id: str,
+    currency: str = "CLP",
+    status: str | None = None,
+    priority: str | None = None,
+    change_type: str | None = None,
+    responsible_id: str | None = None,
+) -> dict:
     """Agrega distribución, riesgos, costos y atrasos de cambios."""
-    changes = session.scalars(
-        select(ChangeRequest).where(ChangeRequest.project_id == project_id)
-    ).all()
+    query = select(ChangeRequest).where(ChangeRequest.project_id == project_id)
+    if status:
+        query = query.where(ChangeRequest.status == status)
+    if priority:
+        query = query.where(ChangeRequest.priority == priority)
+    if change_type:
+        query = query.where(ChangeRequest.change_type == change_type)
+    if responsible_id:
+        query = query.where(ChangeRequest.responsible_id == responsible_id)
+    changes = session.scalars(query).all()
     by_status: dict[str, int] = {}
     by_risk: dict[str, int] = {}
     for change in changes:
@@ -190,6 +205,12 @@ def change_dashboard(session: Session, project_id: str, currency: str = "CLP") -
                 "Implementación",
                 "Verificación",
             )
+        },
+        "filters": {
+            "status": status,
+            "priority": priority,
+            "type": change_type,
+            "responsible_id": responsible_id,
         },
         "kpis": [
             {"code": kpi.code, "name": kpi.name, "result": str(kpi.result) if kpi.result is not None else None, "status": kpi.status}

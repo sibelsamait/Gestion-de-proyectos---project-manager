@@ -10,6 +10,7 @@ from ..models import (
     ChangeApplication,
     ChangeBaseline,
     ChangeRequest,
+    ChangeStageHistory,
     Project,
     Task,
 )
@@ -55,6 +56,37 @@ def capture_baseline(session: Session, change: ChangeRequest) -> ChangeBaseline:
     baseline = ChangeBaseline(change_request_id=change.id, snapshot=snapshot)
     session.add(baseline)
     return baseline
+
+
+def transition_change(
+    session: Session,
+    change: ChangeRequest,
+    actor_id: str,
+    comment: str,
+) -> ChangeStageHistory:
+    """Avanza exactamente una etapa y registra quién, cuándo y por qué."""
+    try:
+        current_index = STAGES.index(change.stage)
+    except ValueError as exc:
+        raise ChangeError("La solicitud tiene una etapa inválida.") from exc
+    if current_index >= len(STAGES) - 1:
+        raise ChangeError("La solicitud ya está en la última etapa.")
+    comment = comment.strip()
+    if not comment:
+        raise ChangeError("Debes explicar brevemente el avance.")
+    previous_stage = change.stage
+    change.stage = STAGES[current_index + 1]
+    change.status = "in_progress"
+    change.version += 1
+    history = ChangeStageHistory(
+        change_request_id=change.id,
+        from_stage=previous_stage,
+        to_stage=change.stage,
+        actor_id=actor_id,
+        comment=comment,
+    )
+    session.add(history)
+    return history
 
 
 def approve_change(session: Session, change: ChangeRequest, approver_role: str) -> list[ChangeApplication]:
@@ -107,7 +139,7 @@ def approve_change(session: Session, change: ChangeRequest, approver_role: str) 
         )
     session.add_all(applications)
     change.status = "approved"
-    change.stage = "Implementación"
+    change.stage = "Planificación de la implementación"
     change.version += 1
     recalculate_project_state(session, change.project_id)
     return applications
