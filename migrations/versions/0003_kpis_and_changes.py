@@ -13,9 +13,13 @@ def upgrade() -> None:
     """Crea las tablas de la Fase 4."""
     bind = op.get_bind()
     enums = (
-        sa.Enum("project", "task", "milestone", "change", name="kpi_scope"),
-        sa.Enum("higher", "lower", "range", name="kpi_direction"),
-        sa.Enum("automatic", "manual", name="kpi_source"),
+        sa.Enum(
+            "project", "task", "milestone", "change", name="kpi_scope", create_type=False
+        ),
+        sa.Enum(
+            "higher", "lower", "range", name="kpi_direction", create_type=False
+        ),
+        sa.Enum("automatic", "manual", name="kpi_source", create_type=False),
     )
     for enum in enums:
         enum.create(bind, checkfirst=True)
