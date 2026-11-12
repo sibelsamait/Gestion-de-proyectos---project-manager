@@ -18,6 +18,7 @@ from ...models import (
     TaskDependency,
 )
 from ...services.audit import record_audit
+from ...services.project_state import recalculate_project_state
 from ...services.scheduler import validate_dependency
 from ..projects import project_access_required
 
@@ -67,6 +68,11 @@ def _can_manage(project_id: str) -> bool:
     ) is not None
 
 
+def _recalculate(project_id: str) -> None:
+    """Ejecuta el único recálculo antes de confirmar cambios del proyecto."""
+    recalculate_project_state(db.session, project_id)
+
+
 @work_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def create_project() -> str:
@@ -93,6 +99,7 @@ def create_project() -> str:
             db.session.add(project)
             db.session.flush()
             db.session.add(ProjectMembership(project_id=project.id, user_id=current_user.id, membership_role="manager"))
+            _recalculate(project.id)
             record_audit("project.created", "project", project.id)
             db.session.commit()
             flash("Proyecto creado.", "success")
@@ -123,6 +130,7 @@ def edit_project(project: Project) -> str:
                 raise ValueError("Estado de proyecto inválido.")
             if project.planned_start and project.planned_end and project.planned_end < project.planned_start:
                 raise ValueError("La fecha de término no puede preceder al inicio.")
+            _recalculate(project.id)
             record_audit("project.updated", "project", project.id)
             db.session.commit()
             flash("Proyecto actualizado.", "success")
@@ -184,6 +192,7 @@ def create_work_item(project: Project, kind: str) -> str:
                 item.evidence = _text("evidence", 5000, False)
             db.session.add(item)
             db.session.flush()
+            _recalculate(project.id)
             record_audit(f"{kind}.created", kind, item.id)
             db.session.commit()
             flash("Elemento creado.", "success")
@@ -235,6 +244,7 @@ def edit_work_item(project: Project, kind: str, item_id: str) -> str:
                 item.committed_date = _date(request.form.get("committed_date"))
                 item.acceptance_criteria = _text("acceptance_criteria", 5000, False)
                 item.evidence = _text("evidence", 5000, False)
+            _recalculate(project.id)
             record_audit(f"{kind}.updated", kind, item.id)
             db.session.commit()
             flash("Elemento actualizado.", "success")
@@ -275,6 +285,7 @@ def create_dependency(project: Project, task_id: str) -> tuple[dict[str, str], i
         validate_dependency(db.session, dependency)
         db.session.add(dependency)
         db.session.flush()
+        _recalculate(project.id)
         record_audit("task_dependency.created", "task_dependency", successor.id)
         db.session.commit()
         return {"message": "Dependencia creada."}, 201
@@ -296,6 +307,8 @@ def delete_work_item(project: Project, kind: str, item_id: str) -> tuple[str, in
     if item is None:
         abort(404)
     db.session.delete(item)
+    db.session.flush()
+    _recalculate(project.id)
     record_audit(f"{kind}.deleted", kind, item_id)
     db.session.commit()
     flash("Elemento eliminado.", "success")

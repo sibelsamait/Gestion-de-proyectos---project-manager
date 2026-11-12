@@ -13,7 +13,7 @@ from ..models import (
     Project,
     Task,
 )
-from .scheduler import recalculate_project
+from .project_state import recalculate_project_state
 
 
 class ChangeError(ValueError):
@@ -59,7 +59,7 @@ def capture_baseline(session: Session, change: ChangeRequest) -> ChangeBaseline:
 
 def approve_change(session: Session, change: ChangeRequest, approver_role: str) -> list[ChangeApplication]:
     """Aprueba y aplica impactos declarados dentro de la transacción."""
-    if approver_role not in {"admin", "manager"}:
+    if approver_role not in {"admin", "director"}:
         raise ChangeError("El rol no está autorizado para aprobar cambios.")
     if change.status == "approved":
         raise ChangeError("La solicitud ya fue aprobada.")
@@ -106,8 +106,8 @@ def approve_change(session: Session, change: ChangeRequest, approver_role: str) 
             )
         )
     session.add_all(applications)
-    recalculate_project(change.project_id, session)
     change.status = "approved"
     change.stage = "Implementación"
     change.version += 1
+    recalculate_project_state(session, change.project_id)
     return applications

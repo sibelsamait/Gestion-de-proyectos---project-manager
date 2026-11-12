@@ -7,7 +7,7 @@ from flask_login import current_user
 from sqlalchemy import select
 
 from ...extensions import db
-from ...models import ChangeRequest, KpiDefinition, ProjectMembership
+from ...models import ChangeRequest, KpiDefinition, Project
 from ...services.change_service import ChangeError, approve_change
 from ...services.kpi_engine import KpiError, evaluate_kpi
 from ..projects import project_access_required
@@ -15,15 +15,9 @@ from ..projects import project_access_required
 management_bp = Blueprint("management", __name__, url_prefix="/api/projects")
 
 
-def _manager(project_id: str) -> bool:
-    """Comprueba privilegio de gestión o administración."""
-    return current_user.is_admin or db.session.scalar(
-        select(ProjectMembership).where(
-            ProjectMembership.project_id == project_id,
-            ProjectMembership.user_id == current_user.id,
-            ProjectMembership.membership_role == "manager",
-        )
-    ) is not None
+def _can_approve(project: Project) -> bool:
+    """Solo el administrador o el director del proyecto pueden aprobar."""
+    return current_user.is_admin or project.director_id == current_user.id
 
 
 @management_bp.post("/<string:project_id>/kpis/<string:kpi_id>/measure")
@@ -52,8 +46,8 @@ def measure_kpi(project: object, kpi_id: str):
 @management_bp.post("/<string:project_id>/changes/<string:change_id>/approve")
 @project_access_required
 def approve(project: object, change_id: str):
-    """Aprueba una solicitud solo para admin o manager."""
-    if not _manager(project.id):
+    """Aprueba una solicitud solo para administrador o director."""
+    if not _can_approve(project):
         abort(403)
     change = db.session.scalar(
         select(ChangeRequest).where(
@@ -63,7 +57,7 @@ def approve(project: object, change_id: str):
     if change is None:
         abort(404)
     try:
-        applications = approve_change(db.session, change, "admin" if current_user.is_admin else "manager")
+        applications = approve_change(db.session, change, "admin" if current_user.is_admin else "director")
         db.session.commit()
         return jsonify({"status": change.status, "applications": len(applications)})
     except (ChangeError, ValueError, InvalidOperation) as error:

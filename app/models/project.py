@@ -27,6 +27,7 @@ class Project(db.Model):
     director_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     sponsor: Mapped[str | None] = mapped_column(String(160))
     authorized_budget: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    progress_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
     planned_start: Mapped[date | None] = mapped_column(Date)
     planned_end: Mapped[date | None] = mapped_column(Date)
     actual_start: Mapped[date | None] = mapped_column(Date)
