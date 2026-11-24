@@ -1,9 +1,89 @@
 {% extends "base.html" %}
-{% block title %}Mis proyectos{% endblock %}
+{% block title %}Proyectos{% endblock %}
+{% block breadcrumbs %}<span>Proyectos</span>{% endblock %}
 {% block content %}
-<h1>Mis proyectos</h1>
-{% if projects %}
-<ul>{% for project in projects %}<li><a href="{{ url_for('projects.detail', project_id=project.id) }}">{{ project.code }} — {{ project.name }}</a></li>{% endfor %}</ul>
-{% else %}<p>No tienes proyectos asignados.</p>{% endif %}
-{% endblock %}
+{%- set cur = money.currency -%}
+<header class="page-header">
+  <div>
+    <h1>Proyectos</h1>
+    <p class="lede">Proyectos que creó o en los que su correo fue agregado. Seleccione un proyecto para gestionar su planificación y emitir el informe PDF.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{{ url_for('work.create_project') }}">{{ ui.icon("plus") }} Nuevo proyecto</a>
+  </div>
+</header>
 
+{% if currency_fallback %}
+<div class="notice">{{ ui.icon("alert") }}<span>No hay tasa disponible para {{ selected_currency }}. Los montos se muestran en CLP.</span></div>
+{% endif %}
+
+<dl class="stats">
+  {{ ui.stat("Proyectos", totals.projects) }}
+  {{ ui.stat("En ejecución", totals.active) }}
+  {{ ui.stat("Tareas atrasadas", totals.overdue, "Suma de todos los proyectos", "is-alert" if totals.overdue else "") }}
+  {{ ui.stat("Presupuesto autorizado", totals.budget | money(cur), "Moneda: " ~ cur) }}
+</dl>
+
+<section class="card" aria-labelledby="portfolio-title">
+  <div class="toolbar">
+    <h2 id="portfolio-title">Portafolio</h2>
+    <nav class="segmented" aria-label="Filtrar por estado">
+      <a href="{{ url_for('projects.dashboard') }}" class="{% if not status_filter %}is-active{% endif %}">Todos</a>
+      {% for value, entry in PROJECT_STATUS.items() %}
+        <a href="{{ url_for('projects.dashboard', estado=value) }}" class="{% if status_filter == value %}is-active{% endif %}">{{ entry[0] }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Proyecto</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Su rol</th>
+          <th scope="col">Director</th>
+          <th scope="col">Período planificado</th>
+          <th scope="col">Avance</th>
+          <th scope="col" class="num">Tareas</th>
+          <th scope="col" class="num">Hitos</th>
+          <th scope="col" class="num">Presupuesto</th>
+          <th scope="col" class="actions"><span class="sr-only">Acciones</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}{% set p = row.project %}
+        <tr>
+          <td>
+            <a class="cell-title" href="{{ url_for('projects.detail', project_id=p.id) }}">{{ p.name }}</a>
+            <span class="cell-sub mono">{{ p.code }}</span>
+          </td>
+          <td><span class="badge-stack">{{ ui.badge("project_phase", p.phase) }}{{ ui.badge("project_status", p.status) }}</span></td>
+          <td><span class="badge {{ 'badge-info' if row.role == 'admin' else 'badge-neutral' }}">{{ PROJECT_ROLE_INFO[row.role][0] }}</span></td>
+          <td>{{ row.director or "—" }}</td>
+          <td class="nowrap num">{{ p.planned_start | date_cl }} – {{ p.planned_end | date_cl }}</td>
+          <td>{{ ui.progress(row.progress, "Avance de " ~ p.name, "is-done" if row.progress >= 100 else "") }}</td>
+          <td class="num">
+            {{ row.tasks_total }}
+            {% if row.tasks_overdue %}<span class="cell-sub is-danger-text">{{ row.tasks_overdue }} atrasada{{ "s" if row.tasks_overdue != 1 }}</span>{% endif %}
+          </td>
+          <td class="num">{{ row.milestones_done }}/{{ row.milestones_total }}</td>
+          <td class="num">{{ row.budget | money(cur) }}</td>
+          <td class="actions">
+            <span class="row-actions">
+              <a class="icon-btn" href="{{ url_for('reports.report_preview', project_id=p.id) }}" title="Informe PDF" aria-label="Informe PDF de {{ p.name }}">{{ ui.icon("report", 15) }}</a>
+              <a class="icon-btn" href="{{ url_for('projects.detail', project_id=p.id) }}" title="Abrir proyecto" aria-label="Abrir {{ p.name }}">{{ ui.icon("chevron", 15) }}</a>
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif status_filter %}
+    {{ ui.empty_state("filter", "Sin proyectos en este estado", "Ningún proyecto del portafolio tiene el estado seleccionado.") }}
+  {% else %}
+    {{ ui.empty_state("portfolio", "Aún no tiene proyectos", "Cree un proyecto para administrarlo, o pida al administrador de un proyecto que agregue su correo (" ~ g.user.email ~ ").", url_for('work.create_project'), "Nuevo proyecto") }}
+  {% endif %}
+</section>
+{% endblock %}

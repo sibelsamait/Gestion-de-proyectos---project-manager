@@ -1,1 +1,1 @@
-{% extends "base.html" %}{% block content %}<h1>Solicitud inválida</h1><p>Revisa los datos enviados.</p>{% endblock %}
+{% extends "errors/_error.html" %}{% block code %}400{% endblock %}{% block heading %}Solicitud inválida{% endblock %}{% block message %}Los datos enviados no son válidos. Revíselos e intente nuevamente.{% endblock %}

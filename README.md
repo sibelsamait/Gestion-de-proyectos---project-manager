@@ -18,8 +18,10 @@ flask seed-demo
 flask run
 ```
 
-`flask seed-demo` imprime dos contraseñas aleatorias una sola vez. No hay
-credenciales demo fijas en el código.
+`flask seed-demo` crea el proyecto `DEMO-2026` con tareas, hitos, recursos, KPI
+y solicitudes de cambio, e imprime el correo y la contraseña de los dos usuarios
+demo. Cualquier persona puede crear su cuenta en `/auth/register` (correo,
+nombre, empresa y contraseña repetida).
 
 Para usar SQLite local basta con omitir `DATABASE_URL`; no se debe usar SQLite
 en Vercel porque el disco serverless es efímero.
@@ -29,11 +31,7 @@ en Vercel porque el disco serverless es efímero.
 - `SECRET_KEY`: secreto aleatorio obligatorio en producción.
 - `DATABASE_URL`: PostgreSQL Neon; se normaliza `postgres://` y se añade
   `sslmode=require`.
-- `FLASK_ENV=production`: activa HTTPS, cookies Secure y `NullPool`.
-- `RATELIMIT_STORAGE_URI`: localmente `memory://`; en Vercel usa la cadena
-  Redis TLS (`rediss://...`) de Upstash para un límite compartido entre
-  instancias. La URL REST y el token de `upstash-redis` no sirven directamente
-  como `RATELIMIT_STORAGE_URI`; copia la conexión Redis desde Upstash.
+- `FLASK_ENV=production`: usa `NullPool` para conexiones serverless.
 - `RATES_API_URL`: URL HTTPS fija del proveedor, por defecto
   `https://mindicador.cl/api`.
 - `CRON_SECRET`: secreto usado por Vercel Cron para `/internal/refresh-rates`.
@@ -87,13 +85,56 @@ de esta fase.
 Las migraciones nunca se ejecutan al importar la función serverless y nunca se
 llama `create_all()` en producción.
 
-## Seguridad, privacidad y soporte
+## Ciclo de gestión del proyecto
 
-El proyecto aplica CSRF, hash scrypt, RBAC, aislamiento por proyecto, auditoría,
-cabeceras de seguridad y bloqueo/rate limit de login. La eliminación de cuenta
-anonimiza autoría histórica cuando la integridad del proyecto requiere
-conservarla. `/privacidad` y `/terminos` son borradores académicos, no asesoría
-legal.
+| Necesidad | Dónde se resuelve |
+|---|---|
+| Etapa de preinversión antes de la inversión | Cada proyecto nace en **Preinversión**; solo pasa a **Inversión** (y puede quedar "En ejecución") cuando el documento de autorización está completo |
+| Estudios previos para inversionistas y bancos | Pestaña *Preinversión*: estudios de mercado, técnico, organizacional, legal y financiero, con estado y conclusión |
+| Justificar la rentabilidad | Evaluación económica: flujo de caja por año, VAN, TIR, período de recuperación (simple y descontado) y relación beneficio/costo |
+| Documento formal que autoriza el proyecto y designa al Director(a) | Pestaña *Preinversión* → Documento de autorización (quién autoriza, fecha, n.º de documento, Director(a)) |
+| Gerente vs. Jefe de proyecto | Roles por proyecto con permisos distintos (ver tabla de roles) |
+| Identificar factores de fracaso antes de comenzar | Pestaña *Riesgos*: probabilidad × impacto, matriz 5×5, estrategia y plan de respuesta (obligatorio para riesgos altos) |
+| Alcance incluido/excluido con plantillas | Pestaña *Alcance*: requisitos, entregables, exclusiones, supuestos y restricciones; plantillas para software a medida, app móvil e integración |
+| Controlar los gastos durante la ejecución | Asignación de recursos a tareas (unidades planificadas y reales) y valor ganado: PV, EV, AC, CPI, SPI, EAC |
+| Estrategia de monitoreo y control | Campo del proyecto que se muestra en el resumen y en el informe |
+| Informe completo | PDF de 10 capítulos con la misma información; la vista previa indica qué falta en cada capítulo |
+
+Por indicación de la cátedra, la app **no** incluye EDT/WBS: las tareas son una lista plana y el campo
+`etapa` solo las agrupa visualmente.
+
+## Alcance de seguridad (demo)
+
+Es una aplicación de demostración con seguridad mínima:
+
+- **Inicio de sesión:** solo pueden entrar usuarios registrados. El acceso se
+  concede si el texto ingresado es exactamente igual a la columna `password`
+  (texto plano, sin hash).
+- **Roles por proyecto** (tabla `project_members`, por correo): quien crea un
+  proyecto queda como **administrador** y, en la pestaña *Usuarios*, agrega
+  correos con un rol. Un correo agregado ve el proyecto en su panel apenas inicia
+  sesión o se registra. Quien no está en la lista recibe 403.
+
+  | Rol | Puede |
+  |---|---|
+  | Gerente de proyecto (`admin`) | Monitorea el proyecto en su conjunto: preinversión, autorización, alcance, presupuesto y recursos, aprobación de cambios y lista de usuarios |
+  | Jefe de proyecto (`gestor`) | Trabaja con el equipo técnico en la ejecución: tareas, hitos, dependencias, asignación de recursos, riesgos y mediciones de KPI |
+  | Miembro | Solo lectura y exportar el PDF para guardarlo o imprimirlo (p. ej., el cliente del proyecto); rol por defecto al agregar usuarios |
+
+  Un proyecto siempre conserva al menos un administrador.
+- **Validación de datos** (`app/validation.py`): tipos, largos máximos según
+  cada columna, números no negativos, orden de fechas y opciones que deben
+  coincidir exactamente con los valores `Enum` del esquema (por ejemplo
+  `en_ejecucion` o `cumplido`).
+- **Auditoría** (tabla `audit_log`, no visible en la interfaz): cada cambio guarda
+  el correo del usuario, el rol con que actuó en ese proyecto (`admin`, `gestor`
+  o `miembro`), el código del cambio (`task.created`,
+  `change.approved`, etc.), una descripción y la fecha/hora. Permite medir qué
+  usuarios trabajaron en la administración y gestión de cada proyecto, por
+  ejemplo: `SELECT user_email, role, count(*) FROM audit_log GROUP BY 1, 2;`.
+
+Como las contraseñas se guardan legibles, usa contraseñas exclusivas de esta demo
+y no publiques datos reales.
 
 Consulta [docs/api.md](./docs/api.md), [docs/guion_demo.md](./docs/guion_demo.md)
 y [docs/licencias.md](./docs/licencias.md). La solución y sus decisiones de
@@ -105,7 +146,5 @@ cumplimiento están descritas en [docs/00_cumplimiento.md](./docs/00_cumplimient
   `sslmode=require`.
 - **Tablas inexistentes:** ejecuta `FLASK_APP=app flask db upgrade` en el
   entorno correcto.
-- **Rate limit inesperado:** limpia el almacenamiento local o configura Redis
-  compartido.
-- **PDF sin datos:** confirma que el usuario sea miembro del proyecto y que
-  existan tareas/KPI.
+- **PDF sin datos:** revisa la vista previa del informe (`/projects/<id>/informe`),
+  que indica qué secciones tienen datos incompletos.

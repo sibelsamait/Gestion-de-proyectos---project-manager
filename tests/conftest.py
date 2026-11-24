@@ -11,9 +11,7 @@ class TestConfig(Config):
     """Configuración aislada para pruebas."""
 
     TESTING = True
-    WTF_CSRF_ENABLED = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
-    TALISMAN_FORCE_HTTPS = False
 
 
 @pytest.fixture
@@ -28,7 +26,19 @@ def app():
 
 
 @pytest.fixture
-def client(app):
-    """Cliente HTTP de pruebas."""
+def anon_client(app):
+    """Cliente sin sesión iniciada."""
     return app.test_client()
+
+
+@pytest.fixture
+def client(app):
+    """Cliente con sesión iniciada como administrador."""
+    from support import create_user
+
+    user_id = create_user(app, "tester@example.com", "Tester", role="admin")
+    test_client = app.test_client()
+    with test_client.session_transaction() as session:
+        session["user_id"] = user_id
+    return test_client
 

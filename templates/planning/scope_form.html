@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{%- set editing = item.id is not none -%}
+{%- set heading = "Editar elemento de alcance" if editing else "Nuevo elemento de alcance" -%}
+{%- set tab = "alcance" -%}
+{%- set lede = "Cada elemento declara formalmente qué incluye o excluye el proyecto." -%}
+{% block title %}{{ heading }} — {{ project.name }}{% endblock %}
+{% block breadcrumbs %}
+  <a href="{{ url_for('projects.dashboard') }}">Proyectos</a>{{ ui.icon("chevron", 14) }}
+  <a href="{{ url_for('projects.detail', project_id=project.id, vista=tab) }}">{{ project.name }}</a>{{ ui.icon("chevron", 14) }}<span>{{ heading }}</span>
+{% endblock %}
+{% block content %}
+{%- set f = request.form if request.method == "POST" else {} -%}
+{% include "planning/_form_header.html" %}
+<form method="post" class="card">
+  <div class="form-section">
+    <div class="form-section-head"><h2>Enunciado</h2><p>Requisitos y entregables quedan incluidos; las exclusiones delimitan lo que no se hará.</p></div>
+    <div class="form-grid">
+      <div class="field field-wide">
+        <label for="f-category">Categoría</label>
+        <select id="f-category" name="category">
+          {% for value, info in SCOPE_CATEGORY_LABELS.items() %}<option value="{{ value }}" {% if f.get('category', item.category) == value %}selected{% endif %}>{{ info[0] }} ({{ {"incluido": "incluido", "excluido": "excluido", "condicion": "condición"}[info[1]] }})</option>{% endfor %}
+        </select>
+      </div>
+      {{ ui.textarea("Descripción", "description", f.get("description", item.description), rows=3) }}
+      {{ ui.textarea("Criterio de aceptación", "acceptance_criteria", f.get("acceptance_criteria", item.acceptance_criteria), "Cómo se verificará que se cumple (para requisitos y entregables).", 2) }}
+    </div>
+  </div>
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="{{ url_for('projects.detail', project_id=project.id, vista=tab) }}">Cancelar</a>
+    <button type="submit" class="btn btn-primary">{{ "Guardar cambios" if editing else "Agregar al alcance" }}</button>
+  </div>
+</form>
+{% endblock %}

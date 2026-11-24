@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{%- set editing = risk.id is not none -%}
+{%- set heading = "Editar riesgo" if editing else "Nuevo riesgo" -%}
+{%- set tab = "riesgos" -%}
+{%- set lede = "Evalúe la probabilidad y el impacto en escala de 1 a 5; la severidad es su producto." -%}
+{% block title %}{{ heading }} — {{ project.name }}{% endblock %}
+{% block breadcrumbs %}
+  <a href="{{ url_for('projects.dashboard') }}">Proyectos</a>{{ ui.icon("chevron", 14) }}
+  <a href="{{ url_for('projects.detail', project_id=project.id, vista=tab) }}">{{ project.name }}</a>{{ ui.icon("chevron", 14) }}<span>{{ heading }}</span>
+{% endblock %}
+{% block content %}
+{%- set f = request.form if request.method == "POST" else {} -%}
+{% set scale = {1: "Muy baja", 2: "Baja", 3: "Media", 4: "Alta", 5: "Muy alta"} %}
+{% include "planning/_form_header.html" %}
+<form method="post" class="card">
+  <div class="form-section">
+    <div class="form-section-head"><h2>Identificación</h2><p>Describa la causa, el evento y su consecuencia.</p></div>
+    <div class="form-grid">
+      {{ ui.textarea("Descripción del riesgo", "description", f.get("description", risk.description), "Ej.: «Si el proveedor de pagos retrasa la API, se atrasará la puesta en marcha».", 3) }}
+      {{ ui.field("Categoría", "category", f.get("category", risk.category), hint="Técnico, plazo, costo, proveedor, negocio, legal…", attrs='maxlength="80" list="risk-categories"') }}
+      <datalist id="risk-categories"><option value="Técnico"><option value="Plazo"><option value="Costo"><option value="Proveedor"><option value="Negocio"><option value="Legal"><option value="Recursos humanos"></datalist>
+      <div class="field">
+        <label for="f-owner_id">Responsable</label>
+        <select id="f-owner_id" name="owner_id"><option value="">Sin asignar</option>
+          {% for user in people %}<option value="{{ user.id }}" {% if f.get('owner_id', risk.owner_id) == user.id %}selected{% endif %}>{{ user.name }}</option>{% endfor %}</select>
+      </div>
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Evaluación</h2><p>Severidad: bajo 1–4, medio 5–9, alto 10–14, crítico 15–25.</p></div>
+    <div class="form-grid">
+      {% for name, label in (("probability", "Probabilidad"), ("impact", "Impacto")) %}
+      <div class="field">
+        <label for="f-{{ name }}">{{ label }}</label>
+        <select id="f-{{ name }}" name="{{ name }}">{% for n, text in scale.items() %}<option value="{{ n }}" {% if (f.get(name, risk[name]) | string) == (n | string) %}selected{% endif %}>{{ n }} · {{ text }}</option>{% endfor %}</select>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Respuesta</h2><p>Obligatoria para riesgos altos y críticos, salvo que se acepten.</p></div>
+    <div class="form-grid">
+      <div class="field"><label for="f-response">Estrategia</label>
+        <select id="f-response" name="response">{% for value, label in RISK_RESPONSE_LABELS.items() %}<option value="{{ value }}" {% if f.get('response', risk.response or 'mitigar') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="f-status">Estado</label>
+        <select id="f-status" name="status">{% for value, entry in RISK_STATUS.items() %}<option value="{{ value }}" {% if f.get('status', risk.status or 'identificado') == value %}selected{% endif %}>{{ entry[0] }}</option>{% endfor %}</select></div>
+      {{ ui.textarea("Plan de respuesta", "response_plan", f.get("response_plan", risk.response_plan), "Acciones concretas, responsables y plazos.", 3) }}
+    </div>
+  </div>
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="{{ url_for('projects.detail', project_id=project.id, vista=tab) }}">Cancelar</a>
+    <button type="submit" class="btn btn-primary">{{ "Guardar cambios" if editing else "Registrar riesgo" }}</button>
+  </div>
+</form>
+{% endblock %}

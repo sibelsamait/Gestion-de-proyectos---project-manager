@@ -1,0 +1,71 @@
+{#- Pestaña Riesgos: factores que podrían provocar el fracaso del proyecto. -#}
+{%- set open_risks = o.risks | rejectattr("status", "equalto", "cerrado") | list -%}
+<dl class="stats">
+  {{ ui.stat("Riesgos abiertos", open_risks | length, (o.risks | length) ~ " registrados en total") }}
+  {{ ui.stat("Altos y críticos", o.risks_open_high | length, "Requieren plan de respuesta", "is-alert" if o.risks_open_high else "") }}
+  {{ ui.stat("Materializados", o.risks | selectattr("status", "equalto", "materializado") | list | length, "Se convirtieron en problemas") }}
+  {{ ui.stat("Severidad promedio", ((open_risks | sum(attribute="score")) / (open_risks | length)) | number_cl(1) if open_risks else "—", "Probabilidad × impacto (1 a 25)") }}
+</dl>
+
+<div class="grid-2">
+<section class="card" aria-labelledby="risks-title">
+  <div class="card-header">
+    <div><h2 id="risks-title">Registro de riesgos</h2><p>Identifique y contenga, antes de iniciar, los factores que podrían hacer fracasar el proyecto.</p></div>
+    {% if editor %}<a class="btn btn-primary btn-sm" href="{{ url_for('planning.risk_form', project_id=pid) }}">{{ ui.icon("plus", 14) }} Nuevo riesgo</a>{% endif %}
+  </div>
+  {% if o.risks %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Riesgo</th><th class="num">P</th><th class="num">I</th><th>Nivel</th><th>Respuesta</th><th>Responsable</th><th>Estado</th>{% if editor %}<th class="actions"><span class="sr-only">Acciones</span></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for r in o.risks %}
+        <tr>
+          <td><span class="cell-title">{{ r.description }}</span>{% if r.category %}<span class="cell-sub">{{ r.category }}</span>{% endif %}{% if r.response_plan %}<span class="cell-sub clamp">Plan: {{ r.response_plan }}</span>{% endif %}</td>
+          <td class="num">{{ r.probability }}</td>
+          <td class="num">{{ r.impact }}</td>
+          <td class="nowrap">{{ ui.badge("risk_level", r.level) }} <span class="muted num">{{ r.score }}</span></td>
+          <td>{{ RISK_RESPONSE_LABELS[r.response] }}</td>
+          <td>{{ o.names.get(r.owner_id) or "—" }}</td>
+          <td>{{ ui.badge("risk_status", r.status) }}</td>
+          {% if editor %}
+          <td class="actions"><span class="row-actions">
+            <a class="icon-btn" href="{{ url_for('planning.risk_form', project_id=pid, risk_id=r.id) }}" title="Editar" aria-label="Editar riesgo">{{ ui.icon("edit", 15) }}</a>
+            {{ ui.delete_form(url_for('planning.delete_risk', project_id=pid, risk_id=r.id), r.description[:40]) }}
+          </span></td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {{ ui.empty_state("alert", "Sin riesgos registrados", "Registre los riesgos técnicos, de plazo, de costo, de proveedores o del negocio que podrían afectar al proyecto.", url_for('planning.risk_form', project_id=pid) if editor else none, "Nuevo riesgo") }}
+  {% endif %}
+</section>
+<aside>
+  <section class="card" aria-labelledby="matrix-title">
+    <div class="card-header"><div><h2 id="matrix-title">Matriz de probabilidad e impacto</h2><p>Riesgos no cerrados.</p></div></div>
+    <div class="card-body">
+      <table class="risk-matrix" aria-describedby="matrix-title">
+        <tbody>
+        {% for row in o.risk_matrix %}{% set impact = 5 - loop.index0 %}
+          <tr>
+            {% if loop.first %}<th rowspan="5" class="axis-y"><span>Impacto</span></th>{% endif %}
+            <th class="axis-num">{{ impact }}</th>
+            {% for cell in row %}{% set prob = loop.index %}{% set score = prob * impact %}
+              <td class="cell-{{ 'bajo' if score <= 4 else 'medio' if score <= 9 else 'alto' if score <= 14 else 'critico' }}" title="Probabilidad {{ prob }} · impacto {{ impact }}: {{ cell | length }} riesgo(s)">{{ cell | length if cell else "" }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+          <tr><td></td><th></th>{% for p in range(1, 6) %}<th class="axis-num">{{ p }}</th>{% endfor %}</tr>
+          <tr><td></td><th></th><th colspan="5" class="axis-x">Probabilidad</th></tr>
+        </tbody>
+      </table>
+      <ul class="chart-legend">
+        <li><i class="swatch-key cell-bajo"></i>Bajo (1–4)</li><li><i class="swatch-key cell-medio"></i>Medio (5–9)</li>
+        <li><i class="swatch-key cell-alto"></i>Alto (10–14)</li><li><i class="swatch-key cell-critico"></i>Crítico (15–25)</li>
+      </ul>
+    </div>
+  </section>
+</aside>
+</div>

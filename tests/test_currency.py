@@ -5,7 +5,6 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
-from test_auth_and_rbac import login, register
 
 from app.extensions import db
 from app.models import ExchangeRate
@@ -127,8 +126,6 @@ def test_refresh_is_idempotent_and_preserves_data_on_failure(app):
 
 
 def test_currency_preference_and_cron_authentication(client, app):
-    register(client, "currency@example.com")
-    login(client, "currency@example.com")
     response = client.post("/settings/currency", data={"currency": "USD"})
     assert response.status_code == 302
     with client.session_transaction() as current_session:

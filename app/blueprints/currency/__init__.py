@@ -3,16 +3,13 @@
 import hmac
 
 from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
-from flask_login import login_required
 
-from ...extensions import csrf
 from ...services.currency import refresh_rates, validate_currency
 
 currency_bp = Blueprint("currency", __name__)
 
 
 @currency_bp.post("/settings/currency")
-@login_required
 def set_currency():
     """Guarda la moneda de presentación en la sesión actual."""
     try:
@@ -26,7 +23,6 @@ def set_currency():
 
 
 @currency_bp.get("/internal/refresh-rates")
-@csrf.exempt
 def refresh_rates_endpoint():
     """Actualiza tasas solo cuando el secreto de cron coincide."""
     secret = current_app.config.get("CRON_SECRET", "")

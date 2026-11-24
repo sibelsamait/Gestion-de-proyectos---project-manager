@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Crear cuenta{% endblock %}
+{% block content %}
+{%- set f = request.form if request.method == "POST" else {} -%}
+<h1>Crear cuenta</h1>
+<p class="lede">Si un administrador agregó su correo a un proyecto, lo verá en su panel al ingresar.</p>
+<form method="post">
+  <div class="field">
+    <label for="f-email">Correo</label>
+    <input id="f-email" name="email" type="email" value="{{ f.get('email', '') }}" autocomplete="email" maxlength="254" required autofocus>
+  </div>
+  <div class="field">
+    <label for="f-name">Nombre</label>
+    <input id="f-name" name="name" value="{{ f.get('name', '') }}" autocomplete="name" maxlength="120" required>
+  </div>
+  <div class="field">
+    <label for="f-company">Empresa</label>
+    <input id="f-company" name="company" value="{{ f.get('company', '') }}" autocomplete="organization" maxlength="160" required>
+  </div>
+  <div class="field">
+    <label for="f-password">Contraseña</label>
+    <input id="f-password" name="password" type="password" autocomplete="new-password" maxlength="255" required>
+  </div>
+  <div class="field">
+    <label for="f-password2">Repetir contraseña</label>
+    <input id="f-password2" name="password_confirmation" type="password" autocomplete="new-password" maxlength="255" required>
+  </div>
+  <button type="submit" class="btn btn-primary btn-lg btn-block">Crear cuenta</button>
+</form>
+<p class="alt">¿Ya tiene cuenta? <a href="{{ url_for('auth.login') }}">Iniciar sesión</a></p>
+{% endblock %}

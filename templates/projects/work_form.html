@@ -1,31 +1,167 @@
 {% extends "base.html" %}
-{% block title %}Nuevo elemento{% endblock %}
+{%- set editing = item.id is not none -%}
+{%- set noun = {"task": "tarea", "resource": "recurso", "milestone": "hito"}[kind] -%}
+{%- set tab = {"task": "tareas", "resource": "recursos", "milestone": "hitos"}[kind] -%}
+{%- set heading = ("Editar " ~ noun) if editing else ("Nueva " ~ noun if kind == "task" else "Nuevo " ~ noun) -%}
+{% block title %}{{ heading | capitalize }} — {{ project.name }}{% endblock %}
+{% block breadcrumbs %}
+  <a href="{{ url_for('projects.dashboard') }}">Proyectos</a>{{ ui.icon("chevron", 14) }}
+  <a href="{{ url_for('projects.detail', project_id=project.id, vista=tab) }}">{{ project.name }}</a>{{ ui.icon("chevron", 14) }}
+  <span>{{ heading | capitalize }}</span>
+{% endblock %}
 {% block content %}
-<h1>Nuevo {{ {"task": "tarea", "resource": "recurso", "milestone": "hito"}[kind] }}</h1>
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <label>Nombre <input name="name" required maxlength="160" value="{{ item.name or '' }}"></label>
-  {% if kind == "task" %}
-  <label>Descripción <textarea name="description">{{ item.description or '' }}</textarea></label>
-  <label>Etapa <input name="etapa" maxlength="120" value="{{ item.etapa or '' }}"></label>
-  <label>Inicio <input name="planned_start" type="date" value="{{ item.planned_start or '' }}"></label>
-  <label>Término <input name="planned_end" type="date" value="{{ item.planned_end or '' }}"></label>
-  <label>Duración hábil <input name="planned_duration_days" type="number" min="0" value="{{ item.planned_duration_days }}"></label>
-  <label>Avance <input name="progress_percent" type="number" min="0" max="100" step="0.01" value="{{ item.progress_percent }}"></label>
-  {% elif kind == "resource" %}
-  <label>Tipo <select name="type">{% for value in ("Profesional", "Licencia", "Material", "Equipamiento", "Otros") %}<option>{{ value }}</option>{% endfor %}</select></label>
-  <label>Especialidad <input name="specialty" value="{{ item.specialty or '' }}"></label>
-  <label>Valor hora <input name="hourly_rate" type="number" min="0" step="0.01" value="{{ item.hourly_rate }}"></label>
-  <label>Horas semanales <input name="hours_per_week" type="number" min="0" step="0.01" value="{{ item.hours_per_week }}"></label>
-  <label>Semanas <input name="weeks" type="number" min="0" step="0.01" value="{{ item.weeks }}"></label>
-  <label>Cantidad <input name="quantity" type="number" min="0" step="0.01" value="{{ item.quantity }}"></label>
-  <label>Valor unitario <input name="unit_cost" type="number" min="0" step="0.01" value="{{ item.unit_cost }}"></label>
-  {% else %}
-  <label>Descripción <textarea name="description">{{ item.description or '' }}</textarea></label>
-  <label>Fecha comprometida <input name="committed_date" type="date" value="{{ item.committed_date or '' }}"></label>
-  <label>Criterios de aceptación <textarea name="acceptance_criteria">{{ item.acceptance_criteria or '' }}</textarea></label>
-  <label>Evidencia (texto o URL) <textarea name="evidence">{{ item.evidence or '' }}</textarea></label>
+{%- set f = request.form if request.method == "POST" else {} -%}
+{%- macro val(name, default) -%}{{ f.get(name, default if default is not none else "") }}{%- endmacro -%}
+<header class="page-header">
+  <div>
+    <div class="eyebrow"><span class="mono">{{ project.code }}</span></div>
+    <h1>{{ heading | capitalize }}</h1>
+    <p class="lede">
+      {% if kind == "task" %}Las fechas planificadas y el avance se reflejan en el Gantt y en el capítulo 2 del informe.
+      {% elif kind == "milestone" %}La fecha comprometida y el estado alimentan el control de hitos y el capítulo 2 del informe.
+      {% else %}El costo base se calcula con la fórmula del tipo de recurso y se valoriza al asignarlo a tareas.{% endif %}
+    </p>
+  </div>
+</header>
+
+<form method="post" class="card">
+
+  {% if kind in ("task", "milestone") %}
+  {% macro responsible_select(current) -%}
+    <div class="field">
+      <label for="f-responsible_id">Responsable</label>
+      <select id="f-responsible_id" name="responsible_id">
+        <option value="">Sin asignar</option>
+        {% for user in people %}<option value="{{ user.id }}" {% if val('responsible_id', current) == user.id %}selected{% endif %}>{{ user.name }}</option>{% endfor %}
+      </select>
+    </div>
+  {%- endmacro %}
   {% endif %}
-  <button type="submit">Guardar</button>
+
+  {% if kind == "task" %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Definición</h2><p>Nombre, etapa y responsable de la ejecución.</p></div>
+    <div class="form-grid">
+      {{ ui.field("Nombre de la tarea", "name", val("name", item.name), required=True, attrs='maxlength="160"') }}
+      {{ ui.field("Etapa", "etapa", val("etapa", item.etapa), hint="Texto libre para agrupar tareas visualmente (p. ej., Diseño, Desarrollo).", attrs='maxlength="120"') }}
+      {{ responsible_select(item.responsible_id) }}
+      {{ ui.textarea("Descripción", "description", val("description", item.description), rows=3) }}
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Planificación y avance</h2><p>La duración se expresa en días hábiles según el calendario del proyecto.</p></div>
+    <div class="form-grid">
+      {{ ui.field("Inicio planificado", "planned_start", val("planned_start", item.planned_start), "date") }}
+      {{ ui.field("Término planificado", "planned_end", val("planned_end", item.planned_end), "date") }}
+      {{ ui.field("Duración (días hábiles)", "planned_duration_days", val("planned_duration_days", item.planned_duration_days or 0), "number", attrs='min="0" step="1"') }}
+      {{ ui.field("Avance (%)", "progress_percent", val("progress_percent", item.progress_percent or 0), "number", hint="Valor entre 0 y 100.", attrs='min="0" max="100" step="0.01"') }}
+    </div>
+  </div>
+
+  {% elif kind == "milestone" %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Definición</h2><p>Entregable verificable de duración cero.</p></div>
+    <div class="form-grid">
+      {{ ui.field("Nombre del hito", "name", val("name", item.name), required=True, attrs='maxlength="160"') }}
+      {{ responsible_select(item.responsible_id) }}
+      {{ ui.textarea("Descripción", "description", val("description", item.description), rows=3) }}
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Compromiso y cumplimiento</h2><p>Registre la fecha real y el estado al cerrar el hito.</p></div>
+    <div class="form-grid form-grid-3">
+      {{ ui.field("Fecha comprometida", "committed_date", val("committed_date", item.committed_date), "date") }}
+      {{ ui.field("Fecha real", "actual_date", val("actual_date", item.actual_date), "date") }}
+      <div class="field">
+        <label for="f-status">Estado</label>
+        <select id="f-status" name="status">
+          {% for value, entry in MILESTONE_STATUS.items() %}<option value="{{ value }}" {% if val('status', item.status or 'pendiente') == value %}selected{% endif %}>{{ entry[0] }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Aceptación</h2><p>Criterio verificable y respaldo del cumplimiento.</p></div>
+    <div class="form-grid">
+      {{ ui.textarea("Criterios de aceptación", "acceptance_criteria", val("acceptance_criteria", item.acceptance_criteria), rows=3) }}
+      {{ ui.textarea("Evidencia", "evidence", val("evidence", item.evidence), "Texto descriptivo o URL del documento de respaldo.", 2) }}
+    </div>
+  </div>
+
+  {% else %}
+  {%- set rtype = val("type", item.type or "Profesional") -%}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Identificación</h2><p>El tipo determina la fórmula de costo.</p></div>
+    <div class="form-grid">
+      {{ ui.field("Nombre del recurso", "name", val("name", item.name), required=True, attrs='maxlength="160"') }}
+      <div class="field">
+        <label for="f-type">Tipo</label>
+        <select id="f-type" name="type" data-resource-type>
+          {% for value in ("Profesional", "Licencia", "Material", "Equipamiento", "Otros") %}<option value="{{ value }}" {% if rtype == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+        </select>
+      </div>
+      {{ ui.field("Especialidad", "specialty", val("specialty", item.specialty), hint="Rol o especificación técnica.", attrs='maxlength="120"') }}
+    </div>
+  </div>
+  <div class="form-section" data-resource-group="Profesional">
+    <div class="form-section-head"><h2>Dedicación profesional</h2><p>Costo = valor hora × horas semanales × semanas.</p></div>
+    <div class="form-grid form-grid-3">
+      {{ ui.field("Valor hora (CLP)", "hourly_rate", val("hourly_rate", item.hourly_rate or 0), "number", attrs='min="0" step="0.01"') }}
+      {{ ui.field("Horas semanales", "hours_per_week", val("hours_per_week", item.hours_per_week or 0), "number", attrs='min="0" step="0.01"') }}
+      {{ ui.field("Semanas", "weeks", val("weeks", item.weeks or 0), "number", attrs='min="0" step="0.01"') }}
+    </div>
+  </div>
+  <div class="form-section" data-resource-group="other">
+    <div class="form-section-head"><h2>Cantidad y valor</h2><p>Costo = cantidad × valor unitario. Aplica a licencias, materiales, equipamiento y otros.</p></div>
+    <div class="form-grid">
+      {{ ui.field("Cantidad", "quantity", val("quantity", item.quantity or 0), "number", attrs='min="0" step="0.01"') }}
+      {{ ui.field("Valor unitario (CLP)", "unit_cost", val("unit_cost", item.unit_cost or 0), "number", attrs='min="0" step="0.01"') }}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="{{ url_for('projects.detail', project_id=project.id, vista=tab) }}">Cancelar</a>
+    <button type="submit" class="btn btn-primary">{{ "Guardar cambios" if editing else "Crear " ~ noun }}</button>
+  </div>
 </form>
+
+{% if kind == "task" and editing %}
+<section class="card" id="recursos" aria-labelledby="assign-title">
+  <div class="card-header">
+    <div><h2 id="assign-title">Recursos asignados</h2><p>Base del control de costos: las unidades planificadas definen el presupuesto de la tarea y las reales, su costo efectivo. 1 unidad = 100 % del costo base del recurso.</p></div>
+  </div>
+  {% if assignments %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Recurso</th><th class="num">Unidades plan.</th><th class="num">Unidades reales</th><th class="num">Costo planificado</th><th class="num">Costo real</th><th class="actions"><span class="sr-only">Acciones</span></th></tr></thead>
+      <tbody>
+        {% for a in assignments %}
+        <tr>
+          <td><span class="cell-title">{{ a.resource.name }}</span><span class="cell-sub">{{ a.resource.type }}</span></td>
+          <td class="num">{{ a.assignment.planned_units | number_cl(2) }}</td>
+          <td class="num">{{ a.assignment.actual_units | number_cl(2) }}</td>
+          <td class="num">{{ a.planned_cost | money("CLP") }}</td>
+          <td class="num {% if a.actual_cost > a.planned_cost %}is-danger-text{% endif %}">{{ a.actual_cost | money("CLP") }}</td>
+          <td class="actions">{{ ui.delete_form(url_for('work.delete_assignment', project_id=project.id, task_id=item.id, resource_id=a.resource.id), a.resource.name) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if resources %}
+  <form method="post" action="{{ url_for('work.save_assignment', project_id=project.id, task_id=item.id) }}" class="card-footer inline-fields">
+    <div class="field"><label for="as-resource">Recurso</label>
+      <select id="as-resource" name="resource_id">{% for r in resources %}<option value="{{ r.id }}">{{ r.name }} ({{ r.type }})</option>{% endfor %}</select></div>
+    <div class="field"><label for="as-planned">Unidades planificadas</label><input id="as-planned" name="planned_units" type="number" min="0" step="0.01" value="1"></div>
+    <div class="field"><label for="as-actual">Unidades reales</label><input id="as-actual" name="actual_units" type="number" min="0" step="0.01" value="0"></div>
+    <div class="field"><button type="submit" class="btn btn-primary">Asignar o actualizar</button></div>
+  </form>
+  {% else %}
+  <p class="card-body muted">El proyecto aún no tiene recursos; el gerente de proyecto los registra en la pestaña Recursos.</p>
+  {% endif %}
+</section>
+{% endif %}
+<script type="module" src="{{ url_for('static', filename='js/project.js') }}"></script>
 {% endblock %}

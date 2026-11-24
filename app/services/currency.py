@@ -228,9 +228,10 @@ def format_money(amount: Decimal | int | str, currency: str = "CLP") -> str:
     normalized = _validate_currency(currency)
     decimals = 0 if normalized == "CLP" else 2
     quantized = Decimal(str(amount)).quantize(Decimal(1).scaleb(-decimals), rounding=ROUND_HALF_UP)
-    text = f"{quantized:,.{decimals}f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    sign = "-" if quantized < 0 else ""
+    text = f"{abs(quantized):,.{decimals}f}".replace(",", "_").replace(".", ",").replace("_", ".")
     prefix = {"CLP": "$", "UF": "UF ", "USD": "US$ "}[normalized]
-    return f"{prefix}{text}"
+    return f"{sign}{prefix}{text}"
 
 
 def refresh_rates(

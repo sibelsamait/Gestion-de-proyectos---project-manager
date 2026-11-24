@@ -1,5 +1,15 @@
 # Fase 0 — Cumplimiento y decisiones de diseño
 
+> **Actualización:** la aplicación se simplificó a una demo con seguridad mínima.
+> El registro e inicio de sesión comparan la contraseña en texto plano (sin
+> hash). El acceso se controla con una lista de correos por proyecto con roles
+> admin/gestor/miembro (el creador queda como admin). Se retiraron CSRF, rate limiting,
+> cabeceras Talisman y los derechos de exportación/anonimización de cuenta. La
+> auditoría se redujo a correo, rol, cambio, descripción y fecha/hora. Se
+> mantiene la validación de datos antes de guardar (ver `app/validation.py` y la sección "Alcance de seguridad" del
+> README). Las secciones de seguridad y privacidad siguientes describen el
+> diseño original y ya no reflejan la implementación.
+
 ## Alcance y advertencias
 
 La aplicación será una herramienta académica de gestión de proyectos. No está

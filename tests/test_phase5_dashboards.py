@@ -3,7 +3,7 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from test_auth_and_rbac import login, register
+from support import create_user
 
 from app.extensions import db
 from app.models import (
@@ -11,7 +11,7 @@ from app.models import (
     ExchangeRate,
     Milestone,
     Project,
-    ProjectMembership,
+    ProjectMember,
     Resource,
     Task,
     User,
@@ -19,14 +19,13 @@ from app.models import (
 
 
 def project_client(client, app):
-    register(client, "dashboard@example.com")
+    user_id = create_user(app, "dashboard@example.com")
     with app.app_context():
-        user = User.query.filter_by(email="dashboard@example.com").one()
-        user.role = "admin"
+        user = db.session.get(User, user_id)
         project = Project(code="DASH", name="Dashboard", status="planificado")
         db.session.add(project)
         db.session.flush()
-        db.session.add(ProjectMembership(project_id=project.id, user_id=user.id, membership_role="manager"))
+        db.session.add(ProjectMember(project_id=project.id, email="tester@example.com", role="admin"))
         db.session.add(
             Task(
                 project_id=project.id,
@@ -60,7 +59,6 @@ def project_client(client, app):
         )
         db.session.commit()
         project_id = project.id
-    login(client, "dashboard@example.com")
     return project_id
 
 

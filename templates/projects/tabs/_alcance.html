@@ -1,0 +1,61 @@
+{#- Pestaña Alcance: enunciado formal de lo incluido y excluido, con plantillas. -#}
+<div class="notice notice-info">{{ ui.icon("info") }}<span>El alcance establece formalmente qué requisitos y entregables <strong>están incluidos</strong> y qué queda <strong>excluido</strong>, además de los supuestos y restricciones. Use una plantilla como punto de partida y ajuste cada elemento al proyecto.</span></div>
+
+{% if is_admin %}
+<section class="card" aria-labelledby="tpl-title">
+  <form method="post" action="{{ url_for('planning.scope_template', project_id=pid) }}" class="card-body template-form">
+    <div class="field">
+      <label for="f-template" id="tpl-title">Cargar plantilla de alcance</label>
+      <select id="f-template" name="template">
+        {% for key, tpl in SCOPE_TEMPLATES.items() %}<option value="{{ key }}">{{ tpl.label }} ({{ tpl["items"] | length }} elementos)</option>{% endfor %}
+      </select>
+      <p class="hint">Solo se agregan los elementos que aún no existen; nada se reemplaza.</p>
+    </div>
+    <button type="submit" class="btn btn-secondary">{{ ui.icon("plus", 14) }} Aplicar plantilla</button>
+  </form>
+</section>
+{% endif %}
+
+{% set groups = [
+  ("Incluido en el alcance", ["requisito_funcional", "requisito_no_funcional", "entregable"]),
+  ("Excluido del alcance", ["exclusion"]),
+  ("Condiciones", ["supuesto", "restriccion"]),
+] %}
+{% for group_label, categories in groups %}
+<h2 class="section-title">{{ group_label }}</h2>
+{% for category in categories %}{% set items = o.scope[category] %}
+<section class="card scope-card" aria-labelledby="scope-{{ category }}">
+  <div class="card-header">
+    <div><h3 id="scope-{{ category }}">{{ SCOPE_CATEGORY_LABELS[category][0] }}</h3></div>
+    <span class="row-actions">
+      <span class="muted num">{{ items | length }}</span>
+      {% if is_admin %}<a class="btn btn-ghost btn-sm" href="{{ url_for('planning.scope_form', project_id=pid, categoria=category) }}">{{ ui.icon("plus", 14) }} Agregar</a>{% endif %}
+    </span>
+  </div>
+  {% if items %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th class="code-col">Código</th><th>Descripción</th>{% if category in ("requisito_funcional", "requisito_no_funcional", "entregable") %}<th>Criterio de aceptación</th>{% endif %}{% if is_admin %}<th class="actions"><span class="sr-only">Acciones</span></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="mono nowrap">{{ {"requisito_funcional": "RF", "requisito_no_funcional": "RNF", "entregable": "ENT", "exclusion": "EXC", "supuesto": "SUP", "restriccion": "RES"}[category] }}-{{ "%02d" | format(loop.index) }}</td>
+          <td>{{ item.description }}</td>
+          {% if category in ("requisito_funcional", "requisito_no_funcional", "entregable") %}<td class="{% if not item.acceptance_criteria %}muted{% endif %}">{{ item.acceptance_criteria or "Sin criterio definido" }}</td>{% endif %}
+          {% if is_admin %}
+          <td class="actions"><span class="row-actions">
+            <a class="icon-btn" href="{{ url_for('planning.scope_form', project_id=pid, item_id=item.id) }}" title="Editar" aria-label="Editar elemento">{{ ui.icon("edit", 15) }}</a>
+            {{ ui.delete_form(url_for('planning.delete_scope', project_id=pid, item_id=item.id), item.description[:40]) }}
+          </span></td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="card-body muted">Sin elementos registrados.</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% endfor %}

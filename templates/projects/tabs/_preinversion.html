@@ -1,0 +1,140 @@
+{#- Pestaña Preinversión: estudios previos, evaluación económica y autorización. -#}
+{%- set ev = o.evaluation -%}
+{%- set done_studies = o.studies | selectattr("status", "equalto", "completado") | list -%}
+
+<div class="lifecycle card" aria-label="Ciclo de vida del proyecto">
+  {% set steps = [
+    ("Estudios previos", done_studies | length == 5, (done_studies | length) ~ " de 5 completados"),
+    ("Evaluación económica", ev.has_data, "VAN " ~ (o.fmt(ev.npv) if ev.npv is not none else "sin calcular")),
+    ("Autorización", not o.auth_gaps, "Documento completo" if not o.auth_gaps else (o.auth_gaps | length) ~ " dato(s) pendiente(s)"),
+    ("Inversión", o.phase == "inversion", "Ejecución, monitoreo y control" if o.phase == "inversion" else "Requiere autorización"),
+  ] %}
+  {% for label, ok, sub in steps %}
+  <div class="step {% if ok %}is-done{% endif %}">
+    <span class="step-index">{% if ok %}{{ ui.icon("check", 14) }}{% else %}{{ loop.index }}{% endif %}</span>
+    <span><span class="step-label">{{ label }}</span><span class="step-sub">{{ sub }}</span></span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="notice notice-info">{{ ui.icon("info") }}<span>La preinversión reúne los estudios y la evaluación que justifican el proyecto ante inversionistas y bancos. Al completar el documento de autorización, el gerente puede pasar el proyecto a la etapa de inversión.</span></div>
+
+<section class="card" aria-labelledby="studies-title" id="estudios">
+  <div class="card-header"><div><h2 id="studies-title">Estudios de preinversión</h2><p>Estudios previos que sustentan la viabilidad del proyecto.</p></div>
+    <span class="readiness-score"><strong>{{ done_studies | length }}</strong> / 5 completados</span></div>
+  <div class="study-grid">
+    {% for study in o.studies %}{% set info = STUDY_TYPE_LABELS[study.study_type] %}
+    <article class="study" id="estudio-{{ study.study_type }}">
+      <header><h3>{{ info[0] }}</h3>{{ ui.badge("study_status", study.status) }}</header>
+      <p class="muted study-help">{{ info[1] }}</p>
+      {% if is_admin %}
+      <form method="post" action="{{ url_for('planning.save_study', project_id=pid, study_type=study.study_type) }}" class="study-form">
+        <div class="field"><label for="st-{{ study.study_type }}">Estado</label>
+          <select id="st-{{ study.study_type }}" name="status">{% for value, entry in STUDY_STATUS.items() %}<option value="{{ value }}" {% if study.status == value %}selected{% endif %}>{{ entry[0] }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="sc-{{ study.study_type }}">Conclusión</label><textarea id="sc-{{ study.study_type }}" name="conclusion" rows="3">{{ study.conclusion or '' }}</textarea></div>
+        <div class="field"><label for="sr-{{ study.study_type }}">Documento o enlace</label><input id="sr-{{ study.study_type }}" name="reference" maxlength="300" value="{{ study.reference or '' }}"></div>
+        <button type="submit" class="btn btn-secondary btn-sm">Guardar estudio</button>
+      </form>
+      {% else %}
+        <p class="prose">{{ study.conclusion or "Sin conclusión registrada." }}</p>
+        {% if study.reference %}<p class="cell-sub">Respaldo: {{ study.reference }}</p>{% endif %}
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card" aria-labelledby="eval-title" id="evaluacion">
+  <div class="card-header"><div><h2 id="eval-title">Evaluación económica</h2><p>Flujo de caja proyectado para justificar la rentabilidad ante inversionistas y bancos. Montos en {{ cur }}.</p></div></div>
+  <dl class="stats stats-flat">
+    {{ ui.stat("VAN", o.fmt(ev.npv) if ev.npv is not none else "—", "Tasa de descuento " ~ (project.discount_rate | number_cl(1)) ~ " %", "is-alert" if ev.npv is not none and ev.npv < 0 else "") }}
+    {{ ui.stat("TIR", ((ev.irr * 100) | number_cl(1) ~ " %") if ev.irr is not none else "—", "Rentabilidad propia del proyecto") }}
+    {{ ui.stat("Recuperación (PRI)", ((ev.payback | number_cl(1)) ~ " años") if ev.payback is not none else "—", "Descontado: " ~ (((ev.discounted_payback | number_cl(1)) ~ " años") if ev.discounted_payback is not none else "no se recupera")) }}
+    {{ ui.stat("Beneficio / costo", (ev.benefit_cost | number_cl(2)) if ev.benefit_cost is not none else "—", "Mayor a 1: los beneficios superan los costos") }}
+  </dl>
+  <div class="card-body"><div class="notice {% if ev.npv is not none and ev.npv > 0 %}notice-info{% endif %}">{{ ui.icon("ok" if ev.npv is not none and ev.npv > 0 else "alert") }}<span>{{ ev.verdict }}</span></div></div>
+  <form method="post" action="{{ url_for('planning.save_evaluation', project_id=pid) }}">
+    {% if is_admin %}
+    <div class="card-body inline-fields eval-params">
+      <div class="field"><label for="f-discount_rate">Tasa de descuento anual (%)</label><input id="f-discount_rate" name="discount_rate" type="number" min="0" max="100" step="0.1" value="{{ '%g' | format(project.discount_rate | float) }}"></div>
+      <div class="field"><label for="f-evaluation_years">Horizonte (años)</label><input id="f-evaluation_years" name="evaluation_years" type="number" min="1" max="20" step="1" value="{{ project.evaluation_years }}"></div>
+      <p class="hint">Los montos se ingresan en CLP. Año 0 corresponde a la inversión inicial.</p>
+    </div>
+    {% endif %}
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Año</th><th class="num">Inversión</th><th class="num">Ingresos</th><th class="num">Costos operacionales</th><th class="num">Flujo neto</th><th class="num">Flujo descontado</th></tr></thead>
+        <tbody>
+          {% for row in ev.rows %}
+          <tr>
+            <td class="num">{{ row.period }}</td>
+            {% for field in ("investment", "income", "costs") %}
+            <td class="num">{% if is_admin %}<input class="input-num" name="{{ field }}_{{ row.period }}" type="number" min="0" step="1" value="{{ '%.0f' | format(row[field]) }}" aria-label="{{ field }} año {{ row.period }}">{% else %}{{ o.fmt(row[field]) }}{% endif %}</td>
+            {% endfor %}
+            <td class="num {% if row.net < 0 %}is-danger-text{% endif %}">{{ o.fmt(row.net) }}</td>
+            <td class="num muted">{{ o.fmt(row.discounted) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if is_admin %}<div class="form-actions"><button type="submit" class="btn btn-primary">Guardar evaluación</button></div>{% endif %}
+  </form>
+</section>
+
+<section class="card" aria-labelledby="auth-title" id="autorizacion">
+  <div class="card-header">
+    <div><h2 id="auth-title">Documento de autorización</h2><p>Documento formal que autoriza el desarrollo del proyecto y designa oficialmente al Director(a).</p></div>
+    {{ ui.badge("project_phase", project.phase) }}
+  </div>
+  <form method="post" action="{{ url_for('planning.save_authorization', project_id=pid) }}">
+    <div class="card-body form-grid">
+      {% if is_admin %}
+        {{ ui.field("Autorizado por", "authorized_by", project.authorized_by, hint="Cargo o instancia que aprueba (p. ej., Gerencia General, Directorio).", attrs='maxlength="160"') }}
+        {{ ui.field("Fecha de autorización", "authorization_date", project.authorization_date or "", "date") }}
+        {{ ui.field("N.º o enlace del documento", "authorization_reference", project.authorization_reference, hint="Acta, resolución o enlace al documento firmado.", attrs='maxlength="160"') }}
+        <div class="field">
+          <label for="f-auth-director">Director(a) del proyecto</label>
+          <select id="f-auth-director" name="director_id">
+            <option value="">Sin designar</option>
+            {% for user in o.people %}<option value="{{ user.id }}" {% if project.director_id == user.id %}selected{% endif %}>{{ user.name }}</option>{% endfor %}
+          </select>
+          <p class="hint">Debe ser un usuario registrado incluido en la lista de usuarios del proyecto.</p>
+        </div>
+        {{ ui.textarea("Observaciones", "authorization_notes", project.authorization_notes, rows=2) }}
+      {% else %}
+        <dl class="kv field-wide">
+          <dt>Autorizado por</dt><dd>{{ project.authorized_by or "—" }}</dd>
+          <dt>Fecha</dt><dd class="num">{{ project.authorization_date | date_cl }}</dd>
+          <dt>Documento</dt><dd>{{ project.authorization_reference or "—" }}</dd>
+          <dt>Director(a)</dt><dd>{{ o.director or "Sin designar" }}</dd>
+        </dl>
+      {% endif %}
+    </div>
+    {% if is_admin %}<div class="form-actions"><button type="submit" class="btn btn-secondary">Guardar autorización</button></div>{% endif %}
+  </form>
+  <div class="card-body phase-gate">
+    {% if project.phase == "preinversion" %}
+      {% if o.auth_gaps %}
+        <p class="field-label">Para pasar a la etapa de inversión falta:</p>
+        <ul class="issue-list">{% for gap in o.auth_gaps %}<li>{{ ui.icon("alert", 14) }} {{ gap }}</li>{% endfor %}</ul>
+      {% else %}
+        <p class="muted">El documento de autorización está completo.</p>
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" action="{{ url_for('planning.change_phase', project_id=pid) }}" data-confirm="¿Registrar el proyecto como autorizado y pasar a la etapa de inversión?">
+        <input type="hidden" name="phase" value="inversion">
+        <button type="submit" class="btn btn-primary" {% if o.auth_gaps %}disabled{% endif %}>{{ ui.icon("check") }} Autorizar y pasar a inversión</button>
+      </form>
+      {% endif %}
+    {% else %}
+      <p>{{ ui.icon("ok", 16, "s-ok") }} Proyecto autorizado{% if project.authorization_date %} el {{ project.authorization_date | date_cl }}{% endif %}; se encuentra en etapa de inversión.</p>
+      {% if is_admin and project.status not in ("en_ejecucion", "terminado") %}
+      <form method="post" action="{{ url_for('planning.change_phase', project_id=pid) }}" data-confirm="¿Devolver el proyecto a preinversión?">
+        <input type="hidden" name="phase" value="preinversion">
+        <button type="submit" class="btn btn-ghost btn-sm">Devolver a preinversión</button>
+      </form>
+      {% endif %}
+    {% endif %}
+  </div>
+</section>

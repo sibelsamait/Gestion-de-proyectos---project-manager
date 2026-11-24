@@ -1,0 +1,83 @@
+{#- Gráficos del resumen. Colores validados (CVD) con la guía de visualización:
+    completada #067647 · en curso #0284C7 · atrasada #B42318; "no iniciada" es el track vacío. -#}
+{%- import "_ui.html" as ui -%}
+{%- set ch = overview.charts -%}
+{%- set cur = overview.money.currency -%}
+{%- set state_label = {"completada": "Completadas", "en_curso": "En curso", "atrasada": "Atrasadas", "no_iniciada": "No iniciadas"} -%}
+
+<section class="card chart-card chart-wide" aria-labelledby="chart-states-title">
+  <div class="card-header">
+    <div><h2 id="chart-states-title">Estado de las tareas</h2><p>{{ overview.counts.tasks }} tareas registradas.</p></div>
+  </div>
+  <div class="card-body">
+    {% if overview.counts.tasks %}
+    <div class="stacked" role="img" aria-label="{% for s in ch.states %}{{ state_label[s.key] }}: {{ s.count }}{{ '; ' if not loop.last }}{% endfor %}">
+      {% for s in ch.states if s.count and s.key != "no_iniciada" %}
+        <span class="seg seg-{{ s.key }}" style="width: {{ '%.3f' | format(s.share) }}%" title="{{ state_label[s.key] }}: {{ s.count }} ({{ '%.0f' | format(s.share) }} %)"></span>
+      {% endfor %}
+    </div>
+    <ul class="chart-legend">
+      {% for s in ch.states %}
+        <li><i class="swatch-key seg-{{ s.key }}" aria-hidden="true"></i><span>{{ state_label[s.key] }}</span><strong class="num">{{ s.count }}</strong><span class="muted num">{{ '%.0f' | format(s.share) }} %</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      <p class="muted">Sin tareas registradas.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card chart-card" aria-labelledby="chart-costs-title">
+  <div class="card-header">
+    <div><h2 id="chart-costs-title">Costo planificado por categoría</h2><p>Recursos asignados a tareas, en {{ cur }}.</p></div>
+  </div>
+  <div class="card-body">
+    {% if ch.costs %}
+    <ul class="hbars">
+      {% for c in ch.costs %}
+        <li title="{{ c.label }}: {{ c.value | money(cur) }}">
+          <span class="hbar-label">{{ c.label }}</span>
+          <span class="hbar-track"><span class="hbar-fill" style="width: {{ '%.3f' | format(c.share) }}%"></span></span>
+          <span class="hbar-value num">{{ c.value | money(cur) }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if overview.budget_usage is not none %}
+    {%- set usage = overview.budget_usage -%}
+    <div class="bullet">
+      <div class="bullet-head">
+        <span>Costo planificado frente a presupuesto</span>
+        <strong class="num {% if usage > 100 %}is-danger-text{% endif %}">{{ '%.1f' | format(usage) }} %</strong>
+      </div>
+      <div class="bullet-track" title="{{ overview.planned_cost | money(cur) }} de {{ overview.budget | money(cur) }}">
+        <span class="bullet-fill {% if usage > 100 %}is-over{% endif %}" style="width: {{ '%.3f' | format([usage, 100] | min) }}%"></span>
+      </div>
+      <div class="bullet-foot num"><span>{{ overview.planned_cost | money(cur) }}</span><span>Presupuesto {{ overview.budget | money(cur) }}</span></div>
+    </div>
+    {% endif %}
+    {% else %}
+      <p class="muted">Los costos se calculan al asignar recursos a las tareas.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card chart-card" aria-labelledby="chart-stages-title">
+  <div class="card-header">
+    <div><h2 id="chart-stages-title">Avance promedio por etapa</h2><p>Promedio simple del avance de las tareas de cada etapa.</p></div>
+  </div>
+  <div class="card-body">
+    {% if ch.stages %}
+    <ul class="hbars">
+      {% for st in ch.stages %}
+        <li title="{{ st.label }}: {{ '%.1f' | format(st.value) }} % ({{ st.count }} tareas)">
+          <span class="hbar-label">{{ st.label }}<span class="cell-sub">{{ st.count }} tarea{{ "s" if st.count != 1 }}</span></span>
+          <span class="hbar-track"><span class="hbar-fill hbar-fill-primary" style="width: {{ '%.3f' | format(st.value) }}%"></span></span>
+          <span class="hbar-value num">{{ '%.0f' | format(st.value) }} %</span>
+        </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      <p class="muted">Sin tareas registradas.</p>
+    {% endif %}
+  </div>
+</section>

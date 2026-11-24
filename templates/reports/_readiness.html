@@ -1,0 +1,32 @@
+{%- import "_ui.html" as ui -%}
+{%- set rep = overview.report -%}
+{%- set status_icon = {"ok": "ok", "warn": "alert", "empty": "empty", "auto": "auto"} -%}
+<section class="card" aria-labelledby="readiness-title">
+  <div class="card-header">
+    <div class="readiness-head">
+      <h2 id="readiness-title">Preparación del informe</h2>
+    </div>
+    <span class="readiness-score"><strong>{{ rep.ready }}</strong> / {{ rep.total }} secciones</span>
+  </div>
+  <div class="card-body">
+    <progress class="progress {% if rep.ready == rep.total %}is-done{% endif %}" max="{{ rep.total }}" value="{{ rep.ready }}" aria-label="Secciones completas del informe"></progress>
+    <ul class="section-list">
+      {% for s in rep.sections %}
+      <li>
+        <span class="s-icon s-{{ s.status }}" title="{{ label_for('report_status', s.status)[0] }}">{{ ui.icon(status_icon[s.status], 16) }}</span>
+        <span>
+          <span class="s-num">{{ s.number }}</span>
+          <span class="s-title">{{ s.title }}</span>
+          <span class="s-sum">{{ s.issues[0] if s.issues and s.status == "warn" else s.summary }}</span>
+        </span>
+        {% if s.tab and s.status in ("warn", "empty") %}
+          <a class="icon-btn" href="{{ url_for('projects.detail', project_id=project.id, vista=s.tab) }}" title="Revisar datos" aria-label="Revisar {{ s.title }}">{{ ui.icon("chevron", 15) }}</a>
+        {% else %}<span></span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card-footer">
+    <a class="btn btn-primary btn-block" href="{{ url_for('reports.report_preview', project_id=project.id) }}">{{ ui.icon("report") }} Revisar y exportar PDF</a>
+  </div>
+</section>

@@ -9,7 +9,17 @@ from .management import (
     KpiDefinition,
     KpiMeasurement,
 )
-from .project import Project, ProjectMembership
+from .planning import (
+    RISK_RESPONSES,
+    RISK_STATUSES,
+    SCOPE_CATEGORIES,
+    STUDY_TYPES,
+    CashFlow,
+    PreinvestmentStudy,
+    Risk,
+    ScopeItem,
+)
+from .project import PROJECT_ROLES, ROLE_RANK, Project, ProjectMember
 from .user import User
 from .work import (
     Milestone,
@@ -21,7 +31,14 @@ from .work import (
 )
 
 __all__ = [
+    "PROJECT_ROLES",
+    "RISK_RESPONSES",
+    "RISK_STATUSES",
+    "ROLE_RANK",
+    "SCOPE_CATEGORIES",
+    "STUDY_TYPES",
     "AuditLog",
+    "CashFlow",
     "ChangeApplication",
     "ChangeBaseline",
     "ChangeRequest",
@@ -30,9 +47,12 @@ __all__ = [
     "KpiMeasurement",
     "Milestone",
     "NonWorkingDay",
+    "PreinvestmentStudy",
     "Project",
-    "ProjectMembership",
+    "ProjectMember",
     "Resource",
+    "Risk",
+    "ScopeItem",
     "Task",
     "TaskDependency",
     "TaskResourceAssignment",

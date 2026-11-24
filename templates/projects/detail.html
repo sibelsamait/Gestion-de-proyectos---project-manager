@@ -1,10 +1,494 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }}{% endblock %}
+{% block breadcrumbs %}
+  <a href="{{ url_for('projects.dashboard') }}">Proyectos</a>{{ ui.icon("chevron", 14) }}<span>{{ project.name }}</span>
+{% endblock %}
 {% block content %}
-<h1>{{ project.name }}</h1>
-<p>{{ project.description or "Sin descripción." }}</p>
-<p>Estado: {{ project.status }}</p>
-<p><a href="{{ url_for('dashboards.tracking_page', project_id=project.id) }}">Tablero de seguimiento</a></p>
-<p><a href="{{ url_for('dashboards.changes_page', project_id=project.id) }}">Gestión del cambio</a></p>
-<p><a href="{{ url_for('reports.export_pdf', project_id=project.id) }}">Descargar informe PDF</a></p>
+{%- set o = overview -%}
+{%- set c = o.counts -%}
+{%- set cur = o.money.currency -%}
+{%- set pid = project.id -%}
+{%- set editor = can("gestor") -%}
+{%- set is_admin = can("admin") -%}
+
+<header class="page-header">
+  <div>
+    <div class="eyebrow"><span class="mono">{{ project.code }}</span>{{ ui.badge("project_phase", project.phase) }}{{ ui.badge("project_status", project.status) }}</div>
+    <h1>{{ project.name }}</h1>
+    <div class="meta-list">
+      <span>Director <strong>{{ o.director or "Sin asignar" }}</strong></span>
+      <span>Patrocinador <strong>{{ project.sponsor or "—" }}</strong></span>
+      <span>{{ ui.icon("calendar", 14) }} <strong class="num">{{ project.planned_start | date_cl }} – {{ project.planned_end | date_cl }}</strong></span>
+    </div>
+  </div>
+  <div class="page-actions">
+    
+      {% if is_admin %}<a class="btn btn-secondary" href="{{ url_for('work.edit_project', project_id=pid) }}">{{ ui.icon("edit") }} Editar proyecto</a>{% endif %}
+    
+    <a class="btn btn-primary" href="{{ url_for('reports.report_preview', project_id=pid) }}">{{ ui.icon("report") }} Exportar informe PDF</a>
+  </div>
+</header>
+
+{% if currency_fallback %}
+<div class="notice">{{ ui.icon("alert") }}<span>No hay tasa disponible para {{ selected_currency }}. Los montos se muestran en CLP.</span></div>
+{% endif %}
+
+<dl class="stats">
+  <div class="stat">
+    <dt class="stat-label">Avance promedio</dt>
+    <dd class="stat-value num">{{ "%.1f" | format(o.tracking.progress) }} %</dd>
+    <dd class="stat-sub"><progress class="progress progress-lg" max="100" value="{{ '%.1f' | format(o.tracking.progress) }}" aria-label="Avance promedio"></progress></dd>
+  </div>
+  {{ ui.stat("Tareas", c.tasks_done ~ " / " ~ c.tasks, (c.tasks_overdue ~ " atrasada" ~ ("s" if c.tasks_overdue != 1 else "")) if c.tasks_overdue else "Sin atrasos", "is-alert" if c.tasks_overdue else "") }}
+  {{ ui.stat("Hitos cumplidos", c.milestones_done ~ " / " ~ c.milestones, (c.milestones_overdue ~ " vencido" ~ ("s" if c.milestones_overdue != 1 else "")) if c.milestones_overdue else "Sin hitos vencidos") }}
+  {{ ui.stat("Costo planificado", o.planned_cost | money(cur), ("%.0f" | format(o.budget_usage) ~ " % de " ~ (o.budget | money(cur))) if o.budget_usage is not none else "Sin presupuesto autorizado", "is-alert" if o.budget_usage and o.budget_usage > 100 else "") }}
+</dl>
+
+{% set tabs = [
+  ("resumen", "overview", "Resumen", none),
+  ("preinversion", "currency", "Preinversión", none),
+  ("alcance", "report", "Alcance", o.scope_count),
+  ("tareas", "tasks", "Tareas", c.tasks),
+  ("hitos", "milestone", "Hitos", c.milestones),
+  ("recursos", "resource", "Recursos", c.resources),
+  ("riesgos", "alert", "Riesgos", o.risks | length),
+  ("kpi", "kpi", "KPI", c.kpis),
+  ("cambios", "change", "Cambios", c.changes),
+  ("usuarios", "users", "Usuarios", o.members | length),
+] %}
+<nav class="tabs" aria-label="Secciones del proyecto">
+  {% for key, icon_name, text, count in tabs %}
+    <a class="tab {% if tab == key %}is-active{% endif %}" href="{{ url_for('projects.detail', project_id=pid, vista=key) }}" {% if tab == key %}aria-current="page"{% endif %}>
+      {{ ui.icon(icon_name, 15) }} {{ text }}{% if count is not none %} <span class="count">{{ count }}</span>{% endif %}
+    </a>
+  {% endfor %}
+</nav>
+
+{# ======================================================== RESUMEN #}
+{% if tab == "resumen" %}
+<div class="chart-grid">
+  {% include "projects/_charts.html" %}
+</div>
+
+{% set evm = o.evm %}
+<section class="card control-card" aria-labelledby="control-title">
+  <div class="card-header">
+    <div><h2 id="control-title">Control de costos y plazo (valor ganado)</h2><p>Compara lo planificado, lo realizado y lo gastado a la fecha según las asignaciones de recursos.</p></div>
+  </div>
+  {% if evm.has_data %}
+  <dl class="stats stats-flat">
+    {{ ui.stat("Presupuesto de las tareas (BAC)", o.fmt(evm.bac), "Autorizado: " ~ (o.budget | money(cur))) }}
+    {{ ui.stat("Valor planificado (PV)", o.fmt(evm.pv), "Trabajo que debía estar hecho hoy") }}
+    {{ ui.stat("Valor ganado (EV)", o.fmt(evm.ev), "Trabajo efectivamente realizado") }}
+    {{ ui.stat("Costo real (AC)", o.fmt(evm.ac), "Gasto registrado en asignaciones") }}
+  </dl>
+  <dl class="stats stats-flat">
+    {{ ui.stat("Índice de costo (CPI)", (evm.cpi | number_cl(2)) if evm.cpi is not none else "—", "Sobre 1: bajo presupuesto" if evm.cpi is none or evm.cpi >= 1 else "Bajo 1: sobrecosto", "is-alert" if evm.cpi is not none and evm.cpi < 1 else "") }}
+    {{ ui.stat("Índice de plazo (SPI)", (evm.spi | number_cl(2)) if evm.spi is not none else "—", "Sobre 1: adelantado" if evm.spi is none or evm.spi >= 1 else "Bajo 1: atrasado", "is-alert" if evm.spi is not none and evm.spi < 1 else "") }}
+    {{ ui.stat("Variación de costo (CV)", o.fmt(evm.cv), "EV − AC", "is-alert" if evm.cv < 0 else "") }}
+    {{ ui.stat("Estimación al término (EAC)", o.fmt(evm.eac) if evm.eac is not none else "—", "BAC ÷ CPI") }}
+  </dl>
+  {% else %}
+    <p class="card-body muted">Asigne recursos a las tareas (con unidades planificadas y reales) para medir el desempeño de costo y plazo.</p>
+  {% endif %}
+  <div class="card-footer"><strong>Estrategia de monitoreo y control:</strong> {{ project.control_plan or "No definida. Defínala al editar el proyecto (frecuencia de reportes, indicadores y umbrales de alerta)." }}</div>
+</section>
+
+<div class="grid-2">
+  <div class="stack">
+    <section class="card" aria-labelledby="scope-title">
+      <div class="card-header">
+        <div><h2 id="scope-title">Fundamentación y alcance</h2><p>Contenido del capítulo 1 del informe.</p></div>
+        {% if is_admin %}<a class="btn btn-ghost btn-sm" href="{{ url_for('work.edit_project', project_id=pid) }}">{{ ui.icon("edit", 14) }} Editar</a>{% endif %}
+      </div>
+      <div class="card-body">
+        <h3>Descripción</h3>
+        <p class="prose {% if not project.description %}muted{% endif %}">{{ project.description or "Sin descripción registrada. El informe indicará que no existe información de alcance." }}</p>
+        <h3>Objetivos</h3>
+        <p class="prose {% if not project.objectives %}muted{% endif %}">{{ project.objectives or "Sin objetivos registrados." }}</p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="sheet-title">
+      <div class="card-header"><h2 id="sheet-title">Ficha del proyecto</h2></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>Código</dt><dd class="mono">{{ project.code }}</dd>
+          <dt>Etapa</dt><dd>{{ ui.badge("project_phase", project.phase) }}</dd>
+          <dt>Estado</dt><dd>{{ ui.badge("project_status", project.status) }}</dd>
+          <dt>Director(a)</dt><dd>{{ o.director or "Sin designar" }}</dd>
+          <dt>Gerente(s) de proyecto</dt><dd>{{ o.managers | join(", ") or "—" }}</dd>
+          <dt>Jefe(s) de proyecto</dt><dd>{{ o.leads | join(", ") or "—" }}</dd>
+          <dt>Autorización</dt><dd>{% if project.authorization_reference %}{{ project.authorization_reference }} · {{ project.authorization_date | date_cl }} · {{ project.authorized_by or "—" }}{% else %}<span class="muted">Pendiente</span>{% endif %}</dd>
+          <dt>Presupuesto autorizado</dt><dd class="num">{{ o.budget | money(cur) }}</dd>
+          <dt>Inicio planificado</dt><dd class="num">{{ project.planned_start | date_cl }}</dd>
+          <dt>Término planificado</dt><dd class="num">{{ project.planned_end | date_cl }}</dd>
+          <dt>Inicio real</dt><dd class="num">{{ project.actual_start | date_cl }}</dd>
+          <dt>Término real</dt><dd class="num">{{ project.actual_end | date_cl }}</dd>
+        </dl>
+      </div>
+    </section>
+
+
+    <section class="card" aria-labelledby="attention-title">
+      <div class="card-header"><h2 id="attention-title">Requiere atención</h2></div>
+      {% set overdue = o.tasks | selectattr("state", "equalto", "atrasada") | list %}
+      {% if overdue or o.upcoming_milestones %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Elemento</th><th>Tipo</th><th class="num">Fecha</th><th>Estado</th></tr></thead>
+          <tbody>
+            {% for row in overdue[:6] %}
+              <tr><td><span class="cell-title">{{ row.task.name }}</span></td><td>Tarea</td><td class="num">{{ row.task.planned_end | date_cl }}</td><td>{{ ui.badge("task_state", row.state) }}</td></tr>
+            {% endfor %}
+            {% for row in o.upcoming_milestones %}
+              <tr><td><span class="cell-title">{{ row.milestone.name }}</span></td><td>Hito</td><td class="num">{{ row.milestone.committed_date | date_cl }}</td><td>{{ ui.badge("milestone_status", row.milestone.status) }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if overdue | length > 6 %}
+      <div class="card-footer"><a href="{{ url_for('projects.detail', project_id=pid, vista='tareas') }}">Ver las {{ overdue | length }} tareas atrasadas</a></div>
+      {% endif %}
+      {% else %}
+        {{ ui.empty_state("ok", "Sin pendientes críticos", "No hay tareas atrasadas ni hitos abiertos con fecha comprometida.") }}
+      {% endif %}
+    </section>
+  </div>
+
+  <aside>
+    {% include "reports/_readiness.html" %}
+  </aside>
+</div>
+
+{# ======================================================== TAREAS #}
+{% elif tab == "tareas" %}
+<section class="card" aria-labelledby="tasks-title">
+  <div class="card-header">
+    <div><h2 id="tasks-title">Tareas</h2><p>Cronograma del capítulo 2 del informe. Las fechas planificadas alimentan el Gantt.</p></div>
+    <div class="page-actions">
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('dashboards.tracking_page', project_id=pid) }}">{{ ui.icon("tracking", 14) }} Ver Gantt</a>
+      {% if editor %}<a class="btn btn-primary btn-sm" href="{{ url_for('work.create_work_item', project_id=pid, kind='task') }}">{{ ui.icon("plus", 14) }} Nueva tarea</a>{% endif %}
+    </div>
+  </div>
+  {% if o.tasks %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Tarea</th><th>Responsable</th><th>Inicio</th><th>Término</th><th class="num">Duración</th>
+          <th>Avance</th><th>Estado</th><th>Predecesoras</th><th class="num">Costo plan.</th>
+          {% if editor %}<th class="actions"><span class="sr-only">Acciones</span></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in o.tasks %}{% set t = row.task %}
+        <tr>
+          <td><span class="cell-title">{{ t.name }}</span>{% if t.etapa %}<span class="cell-sub">{{ t.etapa }}</span>{% endif %}</td>
+          <td class="nowrap">{{ row.responsible or "—" }}</td>
+          <td class="num nowrap">{{ t.planned_start | date_cl }}</td>
+          <td class="num nowrap">{{ t.planned_end | date_cl }}</td>
+          <td class="num">{{ t.planned_duration_days }} d</td>
+          <td>{{ ui.progress(t.progress_percent, "Avance de " ~ t.name, "is-danger" if row.state == "atrasada" else "is-done" if row.state == "completada" else "") }}</td>
+          <td>{{ ui.badge("task_state", row.state) }}</td>
+          <td>
+            {% if row.predecessors %}
+              <span class="dep-list">{% for d in row.predecessors %}<span class="chip">{{ d.name }} <span class="mono">{{ d.type }}{% if d.lag %}{{ "%+d" | format(d.lag) }}d{% endif %}</span></span>{% endfor %}</span>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td class="num">{{ row.planned_cost | money(cur) }}</td>
+          
+          {% if editor %}<td class="actions"><span class="row-actions">
+            <a class="icon-btn" href="{{ url_for('work.edit_work_item', project_id=pid, kind='task', item_id=t.id) }}" title="Editar" aria-label="Editar {{ t.name }}">{{ ui.icon("edit", 15) }}</a>
+            {{ ui.delete_form(url_for('work.delete_work_item', project_id=pid, kind='task', item_id=t.id), t.name) }}
+          </span></td>{% endif %}
+          
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if editor and o.tasks | length > 1 %}
+  <details class="panel">
+    <summary>{{ ui.icon("chevron", 14, "icon-chevron") }} {{ ui.icon("link", 14) }} Registrar dependencia entre tareas</summary>
+    <div class="panel-body">
+      <form class="inline-fields" data-dependency-form data-endpoint-template="{{ url_for('work.create_dependency', project_id=pid, task_id='__TASK__') }}">
+        <div class="field">
+          <label for="dep-pred">Predecesora</label>
+          <select id="dep-pred" name="predecessor_id" required>{% for row in o.tasks %}<option value="{{ row.task.id }}">{{ row.task.name }}</option>{% endfor %}</select>
+        </div>
+        <div class="field">
+          <label for="dep-succ">Sucesora</label>
+          <select id="dep-succ" name="successor_id" required>{% for row in o.tasks %}<option value="{{ row.task.id }}" {% if loop.index == 2 %}selected{% endif %}>{{ row.task.name }}</option>{% endfor %}</select>
+        </div>
+        <div class="field">
+          <label for="dep-type">Tipo</label>
+          <select id="dep-type" name="dependency_type">
+            <option value="FS">Fin a inicio (FS)</option><option value="SS">Inicio a inicio (SS)</option>
+            <option value="FF">Fin a fin (FF)</option><option value="SF">Inicio a fin (SF)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="dep-lag">Desfase (días hábiles)</label>
+          <input id="dep-lag" name="lag_days" type="number" step="1" value="0">
+        </div>
+        <div class="field"><button type="submit" class="btn btn-primary">Registrar</button></div>
+      </form>
+      <p class="form-feedback" role="status" data-feedback></p>
+    </div>
+  </details>
+  {% endif %}
+  {% else %}
+    {{ ui.empty_state("tasks", "Sin tareas registradas", "El capítulo de planificación del informe requiere al menos una tarea con fechas de inicio y término.", url_for('work.create_work_item', project_id=pid, kind='task') if editor else none, "Nueva tarea") }}
+  {% endif %}
+</section>
+
+{# ======================================================== HITOS #}
+{% elif tab == "hitos" %}
+<section class="card" aria-labelledby="ms-title">
+  <div class="card-header">
+    <div><h2 id="ms-title">Hitos</h2><p>Entregables de duración cero con fecha comprometida y criterio de aceptación.</p></div>
+    {% if editor %}<a class="btn btn-primary btn-sm" href="{{ url_for('work.create_work_item', project_id=pid, kind='milestone') }}">{{ ui.icon("plus", 14) }} Nuevo hito</a>{% endif %}
+  </div>
+  {% if o.milestones %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Hito</th><th>Responsable</th><th>Comprometida</th><th>Real</th><th>Estado</th><th>Criterio de aceptación</th><th>Evidencia</th>{% if editor %}<th class="actions"><span class="sr-only">Acciones</span></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for row in o.milestones %}{% set m = row.milestone %}
+        <tr>
+          <td><span class="cell-title">{{ m.name }}</span>{% if m.description %}<span class="cell-sub clamp">{{ m.description }}</span>{% endif %}</td>
+          <td class="nowrap">{{ row.responsible or "—" }}</td>
+          <td class="num nowrap">{{ m.committed_date | date_cl }}</td>
+          <td class="num nowrap">{{ m.actual_date | date_cl }}</td>
+          <td>{{ ui.badge("milestone_status", m.status) }}</td>
+          <td><span class="clamp">{{ m.acceptance_criteria or "—" }}</span></td>
+          <td>
+            {% if m.evidence and m.evidence.startswith(("http://", "https://")) %}
+              <a href="{{ m.evidence }}" rel="noopener noreferrer" target="_blank">{{ ui.icon("link", 14) }} Ver evidencia</a>
+            {% else %}<span class="clamp">{{ m.evidence or "—" }}</span>{% endif %}
+          </td>
+          
+          {% if editor %}<td class="actions"><span class="row-actions">
+            <a class="icon-btn" href="{{ url_for('work.edit_work_item', project_id=pid, kind='milestone', item_id=m.id) }}" title="Editar" aria-label="Editar {{ m.name }}">{{ ui.icon("edit", 15) }}</a>
+            {{ ui.delete_form(url_for('work.delete_work_item', project_id=pid, kind='milestone', item_id=m.id), m.name) }}
+          </span></td>{% endif %}
+          
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {{ ui.empty_state("milestone", "Sin hitos registrados", "Defina hitos con fecha comprometida para controlar entregables en el tablero de seguimiento.", url_for('work.create_work_item', project_id=pid, kind='milestone') if editor else none, "Nuevo hito") }}
+  {% endif %}
+</section>
+
+{# ======================================================== RECURSOS #}
+{% elif tab == "recursos" %}
+<section class="card" aria-labelledby="res-title">
+  <div class="card-header">
+    <div><h2 id="res-title">Recursos</h2><p>Los define el gerente de proyecto. Profesionales: valor hora × horas semanales × semanas. Otros: cantidad × valor unitario. Montos en {{ cur }}.</p></div>
+    {% if is_admin %}<a class="btn btn-primary btn-sm" href="{{ url_for('work.create_work_item', project_id=pid, kind='resource') }}">{{ ui.icon("plus", 14) }} Nuevo recurso</a>{% endif %}
+  </div>
+  {% if o.resources %}
+  {% if o.tracking.professional_utilization.overallocated %}
+    <div class="card-body"><div class="notice">{{ ui.icon("alert") }}<span>Hay profesionales con horas asignadas por sobre su disponibilidad semanal.</span></div></div>
+  {% endif %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Recurso</th><th>Tipo</th><th class="num">Valor hora</th><th class="num">Horas/sem.</th><th class="num">Semanas</th><th class="num">Cantidad</th><th class="num">Valor unitario</th><th class="num">Costo base</th>{% if is_admin %}<th class="actions"><span class="sr-only">Acciones</span></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for row in o.resources %}{% set r = row.resource %}{% set pro = r.type == "Profesional" %}
+        <tr>
+          <td><span class="cell-title">{{ r.name }}</span>{% if r.specialty %}<span class="cell-sub">{{ r.specialty }}</span>{% endif %}</td>
+          <td>{{ r.type }}</td>
+          <td class="num">{{ row.hourly_rate | money(cur) if pro else "—" }}</td>
+          <td class="num">{{ r.hours_per_week | number_cl(1) if pro else "—" }}</td>
+          <td class="num">{{ r.weeks | number_cl(1) if pro else "—" }}</td>
+          <td class="num">{{ "—" if pro else r.quantity | number_cl(2) }}</td>
+          <td class="num">{{ "—" if pro else row.unit_cost | money(cur) }}</td>
+          <td class="num"><strong>{{ row.base_cost | money(cur) }}</strong></td>
+          
+          {% if is_admin %}<td class="actions"><span class="row-actions">
+            <a class="icon-btn" href="{{ url_for('work.edit_work_item', project_id=pid, kind='resource', item_id=r.id) }}" title="Editar" aria-label="Editar {{ r.name }}">{{ ui.icon("edit", 15) }}</a>
+            {{ ui.delete_form(url_for('work.delete_work_item', project_id=pid, kind='resource', item_id=r.id), r.name) }}
+          </span></td>{% endif %}
+          
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {{ ui.empty_state("resource", "Sin recursos registrados", "Registre profesionales, licencias, materiales o equipamiento para valorizar el proyecto.", url_for('work.create_work_item', project_id=pid, kind='resource') if is_admin else none, "Nuevo recurso") }}
+  {% endif %}
+</section>
+
+{# ======================================================== KPI #}
+{% elif tab == "kpi" %}
+<section class="card" aria-labelledby="kpi-title">
+  <div class="card-header">
+    <div><h2 id="kpi-title">Indicadores (KPI)</h2><p>Capítulo 3 del informe. Cada medición queda registrada con sus variables de entrada.</p></div>
+  </div>
+  {% if o.kpis %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Indicador</th><th>Ámbito</th><th>Fórmula</th><th class="num">Meta</th><th class="num">Resultado</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for k in o.kpis %}
+        <tr>
+          <td>
+            <span class="cell-title">{{ k.name }}</span>
+            <span class="cell-sub"><span class="mono">{{ k.code }}</span> · {{ KPI_DIRECTION.get(k.direction, k.direction) }}{% if k.unit %} · {{ k.unit }}{% endif %}</span>
+            {% if k.variables %}
+            {% if editor %}<details class="measure" data-kpi-form data-endpoint="{{ url_for('management.measure_kpi', project_id=pid, kpi_id=k.id) }}">
+              <summary>Registrar medición</summary>
+              <form>
+                <div class="inline-fields">
+                  {% for v in k.variables %}
+                  <div class="field"><label for="k-{{ k.id }}-{{ v }}" class="mono">{{ v }}</label><input id="k-{{ k.id }}-{{ v }}" name="{{ v }}" type="number" step="any" required></div>
+                  {% endfor %}
+                  <div class="field"><button type="submit" class="btn btn-primary btn-sm">Calcular y guardar</button></div>
+                </div>
+                <p class="form-feedback" role="status" data-feedback></p>
+              </form>
+            </details>{% endif %}
+            {% endif %}
+          </td>
+          <td>{{ KPI_SCOPE.get(k.scope, k.scope) }}</td>
+          <td><code class="mono">{{ k.formula }}</code></td>
+          <td class="num">{{ k.target | number_cl(2) if k.target is not none else "—" }}</td>
+          <td class="num"><strong>{{ k.result | number_cl(2) if k.result is not none else "—" }}</strong></td>
+          <td>{{ ui.badge("kpi_status", k.status) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {{ ui.empty_state("kpi", "Sin indicadores definidos", "Este proyecto no tiene KPI configurados. El capítulo 3 del informe se emitirá sin filas.") }}
+  {% endif %}
+</section>
+
+{# ======================================================== CAMBIOS #}
+{% elif tab == "cambios" %}
+<section class="card" aria-labelledby="chg-title">
+  <div class="card-header">
+    <div><h2 id="chg-title">Solicitudes de cambio</h2><p>Capítulo 4 del informe. La aprobación aplica el impacto declarado y captura una línea base.</p></div>
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('dashboards.changes_page', project_id=pid) }}">{{ ui.icon("tracking", 14) }} Tablero de cambios</a>
+  </div>
+  {% if o.changes %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Solicitud</th><th>Fecha</th><th>Tipo</th><th>Prioridad</th><th>Riesgo</th><th>Etapa</th><th>Estado</th><th class="num">Costo estimado</th><th class="num">Costo real</th>{% if is_admin %}<th class="actions"><span class="sr-only">Acciones</span></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for row in o.changes %}{% set ch = row.change %}
+        <tr>
+          <td><span class="cell-title mono">{{ ch.change_code }}</span><span class="cell-sub clamp">{{ ch.description }}</span></td>
+          <td class="num nowrap">{{ ch.requested_at | date_cl }}</td>
+          <td>{{ ch.change_type | capitalize }}</td>
+          <td>{{ ui.badge("priority", ch.priority) }}</td>
+          <td>{{ ui.badge("risk", ch.risk) }}</td>
+          <td class="nowrap">{{ ch.stage }}</td>
+          <td>{{ ui.badge("change_status", ch.status) }}</td>
+          <td class="num">{{ row.estimated_cost | money(cur) }}</td>
+          <td class="num">{{ row.actual_cost | money(cur) }}</td>
+          
+          {% if is_admin %}<td class="actions">
+            {% if row.approvable %}
+              <button type="button" class="btn btn-secondary btn-sm" data-approve="{{ url_for('management.approve', project_id=pid, change_id=ch.id) }}" data-label="{{ ch.change_code }}">{{ ui.icon("check", 14) }} Aprobar</button>
+            {% endif %}
+          </td>{% endif %}
+          
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="form-feedback card-footer" role="status" data-approve-feedback>Solo las solicitudes en etapa «Decisión» pueden aprobarse.</p>
+  {% else %}
+    {{ ui.empty_state("change", "Sin solicitudes de cambio", "No se han registrado solicitudes. El capítulo 4 del informe indicará cero solicitudes.") }}
+  {% endif %}
+</section>
+
+{# ================================================ PLANIFICACIÓN #}
+{% elif tab == "preinversion" %}{% include "projects/tabs/_preinversion.html" %}
+{% elif tab == "alcance" %}{% include "projects/tabs/_alcance.html" %}
+{% elif tab == "riesgos" %}{% include "projects/tabs/_riesgos.html" %}
+
+{# ======================================================== USUARIOS #}
+{% elif tab == "usuarios" %}
+{% set ROLE_INFO = PROJECT_ROLE_INFO %}
+<div class="grid-2">
+<section class="card" aria-labelledby="members-title">
+  <div class="card-header">
+    <div><h2 id="members-title">Usuarios del proyecto</h2><p>Solo los correos de esta lista ven el proyecto. Quien aún no tiene cuenta lo verá al registrarse con ese correo.</p></div>
+  </div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Usuario</th><th>Empresa</th><th>Rol</th><th>Agregado</th>{% if is_admin %}<th class="actions"><span class="sr-only">Acciones</span></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for row in o.members %}{% set m = row.member %}
+        <tr>
+          <td>
+            {% if row.user %}<span class="cell-title">{{ row.user.name }}</span>{% else %}<span class="cell-title muted">Pendiente de registro</span>{% endif %}
+            <span class="cell-sub">{{ m.email }}{% if m.email == g.user.email %} · usted{% endif %}</span>
+          </td>
+          <td>{{ row.user.company if row.user and row.user.company else "—" }}</td>
+          <td>
+            {% if is_admin %}
+            <form method="post" action="{{ url_for('work.change_member_role', project_id=pid, member_id=m.id) }}" class="inline-form">
+              <label class="sr-only" for="role-{{ m.id }}">Rol de {{ m.email }}</label>
+              <select id="role-{{ m.id }}" name="role" class="select-sm" data-autosubmit>
+                {% for value, info in ROLE_INFO.items() %}<option value="{{ value }}" {% if m.role == value %}selected{% endif %}>{{ info[0] }}</option>{% endfor %}
+              </select>
+              <noscript><button type="submit" class="btn btn-secondary btn-sm">Guardar</button></noscript>
+            </form>
+            {% else %}
+              <span class="badge {{ 'badge-info' if m.role == 'admin' else 'badge-neutral' }}">{{ ROLE_INFO[m.role][0] }}</span>
+            {% endif %}
+          </td>
+          <td class="num nowrap">{{ m.added_at | date_cl }}</td>
+          {% if is_admin %}
+          <td class="actions">{{ ui.delete_form(url_for('work.remove_member', project_id=pid, member_id=m.id), m.email) }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_admin %}
+  <form method="post" action="{{ url_for('work.add_member', project_id=pid) }}" class="card-footer member-add">
+    <div class="field">
+      <label for="new-email">Correo</label>
+      <input id="new-email" name="email" type="email" maxlength="254" placeholder="nombre@empresa.cl" required>
+    </div>
+    <div class="field">
+      <label for="new-role">Rol</label>
+      <select id="new-role" name="role">
+        {% for value, info in ROLE_INFO.items() %}<option value="{{ value }}" {% if value == DEFAULT_PROJECT_ROLE %}selected{% endif %}>{{ info[0] }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">{{ ui.icon("plus", 14) }} Agregar usuario</button>
+  </form>
+  {% endif %}
+</section>
+<aside>
+  <section class="card" aria-labelledby="roles-title">
+    <div class="card-header"><h2 id="roles-title">Permisos por rol</h2></div>
+    <div class="card-body">
+      <dl class="role-list">
+        {% for value, info in ROLE_INFO.items() %}
+        <dt>{{ info[0] }}{% if g.project_role == value %} <span class="badge badge-info">Su rol</span>{% endif %}</dt>
+        <dd>{{ info[1] }}</dd>
+        {% endfor %}
+      </dl>
+    </div>
+  </section>
+</aside>
+</div>
+{% endif %}
+
+<script type="module" src="{{ url_for('static', filename='js/project.js') }}"></script>
 {% endblock %}

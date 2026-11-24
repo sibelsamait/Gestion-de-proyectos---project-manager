@@ -29,6 +29,11 @@ def _resource_cost(resource: Resource, units: Decimal, actual: bool = False) -> 
     return base * units
 
 
+def assignment_cost(resource: Resource, units: Decimal) -> Decimal:
+    """Costo de asignar `units` de un recurso; `units=1` entrega su costo base."""
+    return _resource_cost(resource, units)
+
+
 def task_cost(session: Session, task_id: str) -> CostBreakdown:
     """Calcula costo planificado y real sumando asignaciones."""
     rows = session.execute(

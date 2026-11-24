@@ -1,54 +1,94 @@
+{%- import "_ui.html" as ui -%}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Gestión de proyectos{% endblock %}</title>
+  <title>{% block title %}Gestión de proyectos{% endblock %} · Gestión de proyectos</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </head>
-<body>
-  <header class="site-header">
-    <a href="{{ url_for('projects.index') }}">Gestión de proyectos</a>
-    {% if current_user.is_authenticated %}
-      <form method="post" action="{{ url_for('currency.set_currency') }}">
-        <label for="currency-selector">Moneda</label>
-        <select id="currency-selector" name="currency" onchange="this.form.submit()">
-          {% for currency in ("CLP", "UF", "USD") %}
-            <option value="{{ currency }}" {% if selected_currency == currency %}selected{% endif %}>{{ currency }}</option>
-          {% endfor %}
-        </select>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      </form>
-      <div aria-live="polite">
-        {% if rate_status %}
-          Fuente: mindicador.cl / Banco Central de Chile.
-          {% for indicator, rate in rate_status.items() %}
-            {{ indicator }} ${{ rate.rate_used }} ({{ rate.rate_date_display }})
-            {% if rate.is_stale %}<span role="alert">Tipo de cambio desactualizado ({{ rate.rate_date_display }})</span>{% endif %}
-          {% endfor %}
-        {% else %}
-          Tasas de cambio no disponibles; se conserva la moneda base CLP.
-        {% endif %}
+<body class="{{ 'app' if g.user else 'public' }}">
+<a class="skip-link" href="#contenido">Ir al contenido</a>
+{% if g.user %}
+  {% set endpoint = request.endpoint or "" %}
+  <aside class="sidebar" aria-label="Navegación principal">
+    <a class="brand" href="{{ url_for('projects.dashboard') }}">
+      <span class="brand-mark" aria-hidden="true">GP</span>
+      <span class="brand-text">Gestión de proyectos</span>
+    </a>
+    <nav class="nav">
+      <p class="nav-heading">Portafolio</p>
+      <a class="nav-link {% if endpoint == 'projects.dashboard' %}is-active{% endif %}" href="{{ url_for('projects.dashboard') }}" {% if endpoint == 'projects.dashboard' %}aria-current="page"{% endif %}>{{ ui.icon("portfolio") }} Proyectos</a>
+      <a class="nav-link {% if endpoint == 'work.create_project' %}is-active{% endif %}" href="{{ url_for('work.create_project') }}">{{ ui.icon("plus") }} Nuevo proyecto</a>
+      {% if project is defined and project and project.id %}
+        <p class="nav-heading nav-heading-project" title="{{ project.name }}"><span class="mono">{{ project.code }}</span></p>
+        {% set links = [
+          ("projects.detail", "overview", "Gestión del proyecto", url_for('projects.detail', project_id=project.id)),
+          ("dashboards.tracking_page", "tracking", "Seguimiento y Gantt", url_for('dashboards.tracking_page', project_id=project.id)),
+          ("dashboards.changes_page", "change", "Tablero de cambios", url_for('dashboards.changes_page', project_id=project.id)),
+          ("reports.report_preview", "report", "Informe PDF", url_for('reports.report_preview', project_id=project.id)),
+        ] %}
+        {% for ep, icon_name, text, href in links %}
+          {% set active = endpoint == ep or (ep == 'projects.detail' and endpoint.startswith('work.')) %}
+          <a class="nav-link {% if active %}is-active{% endif %}" href="{{ href }}" {% if active %}aria-current="page"{% endif %}>{{ ui.icon(icon_name) }} {{ text }}</a>
+        {% endfor %}
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <span class="avatar" aria-hidden="true">{{ g.user.name[:1] | upper }}</span>
+        <span class="user-meta">
+          <span class="user-name">{{ g.user.name }}</span>
+          <span class="user-role">{{ g.user.email }}</span>
+        </span>
       </div>
-      <nav aria-label="Cuenta">
-        <a href="{{ url_for('privacy.export_data') }}">Descargar mis datos</a>
-        <a href="{{ url_for('privacy.privacy_page') }}">Privacidad</a>
-        <a href="{{ url_for('privacy.terms_page') }}">Términos</a>
-      </nav>
-      <form method="post" action="{{ url_for('auth.logout') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit">Cerrar sesión</button>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="nav nav-compact">
+        <button type="submit" class="nav-link nav-button">{{ ui.icon("logout") }} Cerrar sesión</button>
       </form>
-    {% endif %}
-  </header>
-  <main>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <div role="alert" class="flash flash-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endwith %}
-    {% block content %}{% endblock %}
+    </div>
+  </aside>
+  <div class="shell">
+    <header class="topbar">
+      <nav class="breadcrumbs" aria-label="Ruta">{% block breadcrumbs %}<span>Proyectos</span>{% endblock %}</nav>
+      <div class="topbar-tools">
+        <div class="rates" aria-live="polite">
+          {% if rate_status %}
+            {% for indicator, rate in rate_status.items() %}
+              <span class="rate {% if rate.is_stale %}rate-stale{% endif %}" title="Fuente: mindicador.cl / Banco Central de Chile">
+                <span class="rate-code">{{ indicator }}</span>
+                <span class="num">${{ rate.rate_used | number_cl(2) }}</span>
+                <span class="rate-date num">{{ rate.rate_date_display }}</span>
+                {% if rate.is_stale %}<span class="sr-only">Tipo de cambio desactualizado</span>{{ ui.icon("alert", 13) }}{% endif %}
+              </span>
+            {% endfor %}
+          {% else %}
+            <span class="rate rate-stale">{{ ui.icon("info", 13) }} Tasas no disponibles; montos en CLP</span>
+          {% endif %}
+        </div>
+        <form method="post" action="{{ url_for('currency.set_currency') }}" class="currency-form">
+          <label for="currency-selector" class="sr-only">Moneda de presentación</label>
+          {{ ui.icon("currency", 14, "select-icon") }}
+          <select id="currency-selector" name="currency" data-autosubmit>
+            {% for currency in ("CLP", "UF", "USD") %}
+              <option value="{{ currency }}" {% if selected_currency == currency %}selected{% endif %} {% if currency != 'CLP' and currency not in rate_status %}disabled{% endif %}>{{ currency }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button type="submit" class="btn btn-secondary btn-sm">Aplicar</button></noscript>
+        </form>
+      </div>
+    </header>
+    <main id="contenido" class="content">
+      {% include "_flash.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+{% else %}
+  <main id="contenido" class="public-main">
+    <div class="public-brand"><span class="brand-mark" aria-hidden="true">GP</span> Gestión de proyectos</div>
+    {% include "_flash.html" %}
+    <div class="public-card">{{ self.content() }}</div>
   </main>
+{% endif %}
 </body>
 </html>

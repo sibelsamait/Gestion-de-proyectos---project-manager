@@ -1,20 +1,7 @@
-from test_auth_and_rbac import login, register
-
-from app.extensions import db
-from app.models import Project, Resource, Task, User
-
-
-def admin_client(client, app):
-    register(client, "admin@example.com")
-    with app.app_context():
-        user = User.query.filter_by(email="admin@example.com").one()
-        user.role = "admin"
-        db.session.commit()
-    login(client, "admin@example.com")
+from app.models import Project, Resource, Task
 
 
 def test_project_and_work_item_validation(client, app):
-    admin_client(client, app)
     response = client.post(
         "/projects/new",
         data={"code": "demo", "name": "Demo", "authorized_budget": "-1"},
@@ -53,7 +40,6 @@ def test_project_and_work_item_validation(client, app):
 
 
 def test_resource_rejects_negative_values(client, app):
-    admin_client(client, app)
     client.post("/projects/new", data={"code": "r1", "name": "Recursos"})
     with app.app_context():
         project_id = Project.query.one().id

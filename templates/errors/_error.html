@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ self.heading() }}{% endblock %}
+{% block breadcrumbs %}<span>Error</span>{% endblock %}
+{% block content %}
+<div class="error-page">
+  <p class="code">Error {% block code %}{% endblock %}</p>
+  <h1>{% block heading %}{% endblock %}</h1>
+  <p>{% block message %}{% endblock %}</p>
+  <a class="btn btn-secondary" href="{{ url_for('projects.index') }}">{{ ui.icon("back") }} Volver a proyectos</a>
+</div>
+{% endblock %}

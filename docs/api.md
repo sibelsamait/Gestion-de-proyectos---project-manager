@@ -34,5 +34,5 @@ GET /api/projects/abc/tracking?currency=USD
 }
 ```
 
-La API nunca devuelve tareas de otro proyecto: el decorador de acceso verifica
-el proyecto solicitado y la membresía del usuario.
+Cada endpoint devuelve solo datos del proyecto indicado en la URL y responde
+404 si no existe. Sin sesión iniciada, la API responde 401.

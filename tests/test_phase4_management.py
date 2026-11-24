@@ -101,7 +101,7 @@ def test_change_rejects_unauthorized_role_and_invalid_impact(app):
             id="requester",
             name="Solicitante",
             email="requester@example.com",
-            password_hash="not-used",
+            password="not-used",
             terms_accepted_at=date.today(),
         )
         db.session.add_all([project, user])

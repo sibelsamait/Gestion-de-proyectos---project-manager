@@ -1,20 +1,18 @@
-"""Pruebas de privacidad, PDF y páginas legales."""
+"""Pruebas de generación del informe PDF."""
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from test_auth_and_rbac import login, register
+from support import create_user
 
 from app.extensions import db
-from app.models import ExchangeRate, Project, ProjectMembership, Task, User
+from app.models import ExchangeRate, Project, ProjectMember, Task, User
 
 
-def authenticated_project(client, app):
-    register(client, "privacy@example.com")
-    login(client, "privacy@example.com")
+def authenticated_project(client, app, member_email="tester@example.com", role="admin"):
+    user_id = create_user(app, "privacy@example.com")
     with app.app_context():
-        user = User.query.filter_by(email="privacy@example.com").one()
-        user.role = "admin"
+        user = db.session.get(User, user_id)
         project = Project(
             code="PDF-1",
             name="Informe",
@@ -23,7 +21,9 @@ def authenticated_project(client, app):
         )
         db.session.add(project)
         db.session.flush()
-        db.session.add(ProjectMembership(project_id=project.id, user_id=user.id, membership_role="manager"))
+        db.session.add(ProjectMember(project_id=project.id, email=member_email, role=role))
+        if user.email != member_email:
+            db.session.add(ProjectMember(project_id=project.id, email=user.email, role="gestor"))
         db.session.add(
             Task(
                 project_id=project.id,
@@ -63,32 +63,14 @@ def test_pdf_accepts_currency_with_generation_rate(client, app):
     assert response.data.startswith(b"%PDF")
 
 
-def test_privacy_export_and_anonymization(client, app):
-    project_id = authenticated_project(client, app)
-    exported = client.get("/privacy/export")
-    assert exported.status_code == 200
-    assert exported.get_json()["user"]["email"] == "privacy@example.com"
-
-    deleted = client.post("/privacy/delete")
-    assert deleted.status_code == 302
-    with app.app_context():
-        user = User.query.filter_by(id=User.query.first().id).one()
-        assert user.is_active is False
-        assert user.name == "Usuario anonimizado"
-        assert user.email.endswith("@invalid.local")
-        assert ProjectMembership.query.count() == 0
-        assert project_id is not None
-
-
-def test_legal_pages_and_access_denied_for_another_project(client, app):
-    assert client.get("/privacidad").status_code == 200
-    assert client.get("/terminos").status_code == 200
+def test_only_listed_emails_reach_a_project(client, app):
     first_project = authenticated_project(client, app)
     with app.app_context():
-        User.query.filter_by(email="privacy@example.com").one().role = "usuario_proyecto"
         other = Project(code="PDF-2", name="Otro", status="planificado")
         db.session.add(other)
         db.session.commit()
         other_id = other.id
     assert client.get(f"/projects/{other_id}/export_pdf").status_code == 403
+    assert client.get(f"/projects/{other_id}").status_code == 403
     assert client.get(f"/projects/{first_project}/export_pdf").status_code == 200
+    assert client.get("/projects/no-existe/export_pdf").status_code == 404

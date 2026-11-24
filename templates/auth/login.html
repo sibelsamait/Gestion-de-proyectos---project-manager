@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block content %}
+<h1>Iniciar sesión</h1>
+<p class="lede">Ingrese con el correo y la contraseña registrados en el sistema.</p>
+<form method="post">
+  <div class="field">
+    <label for="f-email">Correo</label>
+    <input id="f-email" name="email" type="email" value="{{ email }}" autocomplete="username" required autofocus>
+  </div>
+  <div class="field">
+    <label for="f-password">Contraseña</label>
+    <input id="f-password" name="password" type="password" autocomplete="current-password" required>
+  </div>
+  <button type="submit" class="btn btn-primary btn-lg btn-block">Ingresar</button>
+</form>
+<p class="alt">¿No tiene cuenta? <a href="{{ url_for('auth.register') }}">Crear cuenta</a></p>
+{% endblock %}

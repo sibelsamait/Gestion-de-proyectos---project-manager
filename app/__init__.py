@@ -3,7 +3,7 @@
 from flask import Flask, render_template, session
 
 from .config import Config
-from .extensions import csrf, db, limiter, login_manager, migrate, talisman
+from .extensions import db, migrate
 
 
 def create_app(config_object: type[Config] | Config | None = None) -> Flask:
@@ -19,14 +19,6 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
 
     db.init_app(app)
     migrate.init_app(app, db)
-    login_manager.init_app(app)
-    csrf.init_app(app)
-    limiter.init_app(app)
-    talisman.init_app(
-        app,
-        content_security_policy=app.config["CONTENT_SECURITY_POLICY"],
-        force_https=app.config["TALISMAN_FORCE_HTTPS"],
-    )
 
     from scripts.seed_demo import register_cli
 
@@ -35,7 +27,7 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
     from .blueprints.currency import currency_bp
     from .blueprints.dashboards import dashboards_bp
     from .blueprints.management import management_bp
-    from .blueprints.privacy import privacy_bp
+    from .blueprints.planning import planning_bp
     from .blueprints.projects import projects_bp
     from .blueprints.reports import reports_bp
     from .blueprints.work import work_bp
@@ -45,12 +37,21 @@ def create_app(config_object: type[Config] | Config | None = None) -> Flask:
     app.register_blueprint(currency_bp)
     app.register_blueprint(projects_bp)
     app.register_blueprint(management_bp)
+    app.register_blueprint(planning_bp)
     app.register_blueprint(dashboards_bp)
-    app.register_blueprint(privacy_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(work_bp)
     register_cli(app)
     register_currency_cli(app)
+
+    from .blueprints.projects import has_role
+    from .ui import register_ui
+
+    register_ui(app)
+    app.add_template_global(has_role, "can")
+    from .services.planning import SCOPE_TEMPLATES
+
+    app.add_template_global(SCOPE_TEMPLATES, "SCOPE_TEMPLATES")
 
     @app.context_processor
     def currency_context_processor() -> dict:

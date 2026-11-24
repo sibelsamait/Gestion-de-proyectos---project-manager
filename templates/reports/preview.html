@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Informe PDF — {{ project.name }}{% endblock %}
+{% block breadcrumbs %}
+  <a href="{{ url_for('projects.dashboard') }}">Proyectos</a>{{ ui.icon("chevron", 14) }}
+  <a href="{{ url_for('projects.detail', project_id=project.id) }}">{{ project.name }}</a>{{ ui.icon("chevron", 14) }}
+  <span>Informe PDF</span>
+{% endblock %}
+{% block content %}
+{%- set rep = overview.report -%}
+{%- set status_icon = {"ok": "ok", "warn": "alert", "empty": "empty", "auto": "auto"} -%}
+{%- set pending = rep.sections | selectattr("status", "equalto", "warn") | list -%}
+<header class="page-header">
+  <div>
+    <div class="eyebrow"><span class="mono">{{ project.code }}</span>{{ ui.badge("project_status", project.status) }}</div>
+    <h1>Informe completo del proyecto</h1>
+    <p class="lede">Revise el contenido de cada sección antes de exportar. El documento se genera con los datos registrados al momento de la descarga.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-secondary" href="{{ url_for('projects.detail', project_id=project.id) }}">{{ ui.icon("back") }} Volver al proyecto</a>
+  </div>
+</header>
+
+<div class="grid-2">
+  <section class="card" aria-labelledby="outline-title">
+    <div class="card-header">
+      <div><h2 id="outline-title">Contenido del documento</h2><p>{{ project.name }} · A4 · {{ rep.total }} secciones</p></div>
+      <span class="readiness-score"><strong>{{ rep.ready }}</strong> / {{ rep.total }} completas</span>
+    </div>
+    <ol class="outline list-plain-reset">
+      {% for s in rep.sections %}
+      <li class="outline-item">
+        <span class="outline-num">{{ s.number }}</span>
+        <div>
+          <p class="outline-title"><span class="s-{{ s.status }}">{{ ui.icon(status_icon[s.status], 16) }}</span>{{ s.title }}</p>
+          <p class="outline-contents">{{ s.contents }}</p>
+          <p class="outline-summary">{{ s.summary }}</p>
+          {% if s.issues %}
+          <ul class="issue-list">
+            {% for issue in s.issues %}<li class="{% if s.status != 'warn' %}muted{% endif %}">{{ ui.icon("alert" if s.status == "warn" else "info", 14) }} {{ issue }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        <div class="outline-side">
+          {{ ui.badge("report_status", s.status) }}
+          {% if s.tab and s.status in ("warn", "empty") %}
+            <a class="btn btn-ghost btn-sm" href="{{ url_for('projects.detail', project_id=project.id, vista=s.tab) }}">Completar datos</a>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <aside>
+    <section class="card export-panel" aria-labelledby="export-title">
+      <div class="card-header"><h2 id="export-title">Exportar informe PDF</h2></div>
+      <form method="get" action="{{ url_for('reports.export_pdf', project_id=project.id) }}">
+        <div class="card-body">
+          {% if pending %}
+          <div class="notice">{{ ui.icon("alert") }}<span>{{ pending | length }} sección(es) con datos incompletos. Puede exportar igualmente; el documento reflejará la información faltante.</span></div>
+          {% else %}
+          <div class="notice notice-info">{{ ui.icon("ok") }}<span>Todas las secciones con datos requeridos están completas.</span></div>
+          {% endif %}
+
+          <fieldset class="currency-options">
+            <legend>Moneda de los montos</legend>
+            {% set default_cur = overview.money.currency %}
+            <label class="currency-option">
+              <input type="radio" name="currency" value="CLP" {% if default_cur == "CLP" %}checked{% endif %}>
+              <span class="c-code">CLP</span><span class="c-text"><span>Peso chileno</span><span class="c-meta">Moneda base</span></span>
+            </label>
+            {% for code, name in (("UF", "Unidad de fomento"), ("USD", "Dólar estadounidense")) %}
+            {% set rate = rate_status.get(code) %}
+            <label class="currency-option">
+              <input type="radio" name="currency" value="{{ code }}" {% if not rate %}disabled{% elif default_cur == code %}checked{% endif %}>
+              <span class="c-code">{{ code }}</span>
+              <span class="c-text"><span>{{ name }}</span><span class="c-meta">{% if rate %}${{ rate.rate_used | number_cl(2) }} al {{ rate.rate_date_display }}{% else %}Tasa no disponible{% endif %}</span></span>
+            </label>
+            {% endfor %}
+          </fieldset>
+
+          <div class="file-meta">{{ ui.icon("report", 18) }}<span class="mono">informe-{{ project.code }}.pdf</span><span class="muted">· A4</span></div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary btn-lg btn-block">{{ ui.icon("download") }} Exportar informe PDF</button>
+        </div>
+      </form>
+    </section>
+  </aside>
+</div>
+{% endblock %}

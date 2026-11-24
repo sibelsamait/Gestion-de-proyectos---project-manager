@@ -9,17 +9,21 @@ from sqlalchemy import select
 
 from app.extensions import db
 from app.models import (
+    CashFlow,
     ChangeRequest,
     KpiDefinition,
     Milestone,
+    PreinvestmentStudy,
     Project,
-    ProjectMembership,
+    ProjectMember,
     Resource,
+    Risk,
     Task,
     TaskDependency,
     TaskResourceAssignment,
     User,
 )
+from app.services.planning import apply_scope_template
 
 
 def _password() -> str:
@@ -40,14 +44,14 @@ def seed_demo() -> tuple[str, str]:
         role="admin",
         terms_accepted_at=datetime.now(UTC),
     )
-    admin.set_password(admin_password)
+    admin.password = admin_password
     member = User(
         name="Usuario Proyecto Demo",
         email="usuario.demo@example.invalid",
         role="usuario_proyecto",
         terms_accepted_at=datetime.now(UTC),
     )
-    member.set_password(user_password)
+    member.password = user_password
     db.session.add_all([admin, member])
     db.session.flush()
     project = Project(
@@ -61,13 +65,23 @@ def seed_demo() -> tuple[str, str]:
         planned_start=date(2026, 1, 5),
         planned_end=date(2026, 4, 30),
         status="en_ejecucion",
+        phase="inversion",
+        authorized_by="Comité de Inversiones",
+        authorization_date=date(2025, 12, 15),
+        authorization_reference="Acta CI-2025-041",
+        control_plan=(
+            "Reporte semanal de avance y valor ganado (CPI y SPI). Alerta si CPI o SPI bajan de 0,9 "
+            "o si un riesgo alto se materializa. Revisión mensual con el patrocinador."
+        ),
+        discount_rate=Decimal(12),
+        evaluation_years=4,
     )
     db.session.add(project)
     db.session.flush()
     db.session.add_all(
         [
-            ProjectMembership(project_id=project.id, user_id=admin.id, membership_role="manager"),
-            ProjectMembership(project_id=project.id, user_id=member.id, membership_role="member"),
+            ProjectMember(project_id=project.id, email=admin.email, role="admin"),
+            ProjectMember(project_id=project.id, email=member.email, role="gestor"),
         ]
     )
     stages = ("Inicio", "Planificación", "Ejecución", "Cierre")
@@ -128,7 +142,8 @@ def seed_demo() -> tuple[str, str]:
                 task_id=tasks[index % len(tasks)].id,
                 resource_id=resource.id,
                 planned_units=Decimal(1),
-                actual_units=Decimal("0.5"),
+                # Costo real algo distinto al plan, para que el valor ganado sea ilustrativo.
+                actual_units=Decimal(("0.80", "1.10", "0.50", "1.25", "0.95")[index % 5]),
             )
         )
     for index in range(6):
@@ -194,20 +209,57 @@ def seed_demo() -> tuple[str, str]:
                 periodicity="manual",
             )
         )
+    _seed_planning(project.id, admin.id, member.id)
     db.session.commit()
     return admin_password, user_password
+
+
+def _seed_planning(project_id: str, manager_id: str, lead_id: str) -> None:
+    """Estudios, evaluación económica, alcance y riesgos de la demo."""
+    conclusions = {
+        "mercado": "Demanda validada con 12 entrevistas a clientes objetivo.",
+        "tecnico": "Arquitectura web con Flask y PostgreSQL; sin dependencias críticas.",
+        "organizacional": "Equipo de cinco profesionales con gerente y jefe de proyecto.",
+        "legal": "Cumple la Ley 19.628 de protección de datos personales.",
+        "financiero": "VAN positivo a una tasa del 12 %; recuperación antes del tercer año.",
+    }
+    db.session.add_all(
+        PreinvestmentStudy(project_id=project_id, study_type=kind, status="completado", conclusion=text)
+        for kind, text in conclusions.items()
+    )
+    flows = [(120000, 0, 0), (0, 70000, 15000), (0, 85000, 18000), (0, 90000, 20000), (0, 95000, 22000)]
+    db.session.add_all(
+        CashFlow(project_id=project_id, period=period, investment=Decimal(inv), income=Decimal(inc), costs=Decimal(cost))
+        for period, (inv, inc, cost) in enumerate(flows)
+    )
+    apply_scope_template(db.session, project_id, "software_a_medida")
+    db.session.add_all([
+        Risk(project_id=project_id, description="Rotación de desarrolladores clave durante la ejecución.",
+             category="Recursos humanos", probability=3, impact=4, response="mitigar",
+             response_plan="Documentar decisiones y hacer revisiones de código cruzadas.", owner_id=manager_id,
+             status="en_tratamiento"),
+        Risk(project_id=project_id, description="Cambios de requisitos tardíos por parte del cliente.",
+             category="Negocio", probability=4, impact=4, response="mitigar",
+             response_plan="Aplicar el flujo formal de solicitudes de cambio con evaluación de impacto.",
+             owner_id=lead_id, status="identificado"),
+        Risk(project_id=project_id, description="Retraso del proveedor de infraestructura en la nube.",
+             category="Proveedor", probability=2, impact=3, response="transferir",
+             response_plan="Cláusula de nivel de servicio con multa en el contrato.", owner_id=manager_id),
+        Risk(project_id=project_id, description="Sobrecosto por subestimación del esfuerzo de pruebas.",
+             category="Costo", probability=3, impact=3, response="aceptar", status="identificado"),
+    ])
 
 
 def register_cli(app) -> None:
     """Registra el comando Flask `seed-demo`."""
     @app.cli.command("seed-demo")
     def seed_demo_command() -> None:
-        """Carga datos de demostración y muestra credenciales aleatorias."""
+        """Carga el proyecto de demostración y muestra las contraseñas de sus usuarios."""
         with app.app_context():
             try:
                 admin_password, user_password = seed_demo()
             except RuntimeError as error:
                 raise click.ClickException(str(error)) from error
-            print("Demo creada.")
+            print("Demo creada: proyecto DEMO-2026.")
             print(f"admin.demo@example.invalid / {admin_password}")
             print(f"usuario.demo@example.invalid / {user_password}")

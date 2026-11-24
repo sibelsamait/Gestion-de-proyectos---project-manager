@@ -1,2 +1,1 @@
-{% extends "base.html" %}{% block content %}<h1>Error interno</h1><p>Ocurrió un error inesperado.</p>{% endblock %}
-
+{% extends "errors/_error.html" %}{% block code %}500{% endblock %}{% block heading %}Error interno{% endblock %}{% block message %}Ocurrió un error inesperado. Intente nuevamente en unos minutos.{% endblock %}

@@ -1,20 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Seguimiento — {{ project.name }}{% endblock %}
+{% block breadcrumbs %}
+  <a href="{{ url_for('projects.dashboard') }}">Proyectos</a>{{ ui.icon("chevron", 14) }}
+  <a href="{{ url_for('projects.detail', project_id=project.id) }}">{{ project.name }}</a>{{ ui.icon("chevron", 14) }}
+  <span>Seguimiento</span>
+{% endblock %}
 {% block content %}
-<h1>Tablero de seguimiento</h1>
-<p>Proyecto: {{ project.name }}</p>
+<header class="page-header">
+  <div>
+    <div class="eyebrow"><span class="mono">{{ project.code }}</span>{{ ui.badge("project_status", project.status) }}</div>
+    <h1>Tablero de seguimiento</h1>
+    <p class="lede">Avance, atrasos, costos por categoría y cronograma planificado de {{ project.name }}.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-secondary" href="{{ url_for('projects.detail', project_id=project.id, vista='tareas') }}">{{ ui.icon("tasks") }} Gestionar tareas</a>
+    <a class="btn btn-primary" href="{{ url_for('reports.report_preview', project_id=project.id) }}">{{ ui.icon("report") }} Exportar informe PDF</a>
+  </div>
+</header>
+
 <section aria-labelledby="tracking-kpis">
-  <h2 id="tracking-kpis">Indicadores</h2>
-  <div id="tracking-summary" aria-live="polite">Cargando datos…</div>
+  <h2 id="tracking-kpis" class="sr-only">Indicadores</h2>
+  <div id="tracking-summary" aria-live="polite" data-project-id="{{ project.id }}"><p class="loading card">Cargando indicadores…</p></div>
 </section>
-<section aria-labelledby="gantt-title">
-  <h2 id="gantt-title">Gantt</h2>
-  <div id="gantt" role="img" aria-label="Cronograma del proyecto" data-project-id="{{ project.id }}"></div>
-  <table id="gantt-table">
-    <caption>Alternativa textual del Gantt</caption>
-    <thead><tr><th>Tarea</th><th>Inicio</th><th>Término</th><th>Avance</th><th>Estado</th></tr></thead>
-    <tbody></tbody>
-  </table>
+
+<section class="card" aria-labelledby="gantt-title">
+  <div class="card-header">
+    <div><h2 id="gantt-title">Gantt</h2><p>Fechas planificadas por tarea. Escala diaria.</p></div>
+    <div class="legend" aria-hidden="true">
+      <span><i class="swatch"></i> En plazo</span>
+      <span><i class="swatch swatch-done"></i> Completada</span>
+      <span><i class="swatch swatch-danger"></i> Atrasada</span>
+      <span><i class="swatch swatch-milestone"></i> Hito</span>
+    </div>
+  </div>
+  <div class="card-body gantt-scroll">
+    <div id="gantt" role="img" aria-label="Cronograma del proyecto" data-project-id="{{ project.id }}"><p class="loading">Cargando cronograma…</p></div>
+  </div>
+  <details class="panel">
+    <summary>{{ ui.icon("chevron", 14, "icon-chevron") }} Ver cronograma en tabla</summary>
+    <div class="table-wrap">
+      <table id="gantt-table" class="data">
+        <caption class="sr-only">Alternativa textual del Gantt</caption>
+        <thead><tr><th>Tarea</th><th>Inicio</th><th>Término</th><th class="num">Avance</th><th>Estado</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </details>
 </section>
 <script type="module" src="{{ url_for('static', filename='js/gantt.js') }}"></script>
 <script type="module" src="{{ url_for('static', filename='js/dashboard1.js') }}"></script>

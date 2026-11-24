@@ -1,8 +1,6 @@
 """Configuración centralizada y segura."""
 
 import os
-from datetime import timedelta
-from typing import ClassVar
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
@@ -35,18 +33,5 @@ class Config:
         if os.environ.get("FLASK_ENV") == "production"
         else {}
     )
-    SESSION_COOKIE_SECURE = os.environ.get("FLASK_ENV") == "production"
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Lax"
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
-    WTF_CSRF_TIME_LIMIT = 3600
-    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
     RATES_API_URL = os.environ.get("RATES_API_URL", "https://mindicador.cl/api")
     CRON_SECRET = os.environ.get("CRON_SECRET", "")
-    TALISMAN_FORCE_HTTPS = os.environ.get("FLASK_ENV") == "production"
-    CONTENT_SECURITY_POLICY: ClassVar[dict] = {
-        "default-src": "'self'",
-        "img-src": ["'self'", "data:"],
-        "script-src": ["'self'"],
-        "style-src": ["'self'"],
-    }
